@@ -352,6 +352,23 @@ function calculateProximityBoost(
   const bnDecaySlices = direction === 1 ? new BigNumber(decaySlicesUp) : new BigNumber(decaySlicesDown);
 
   for (let i = 0; i < totalSlicesInLiquidity; i++) {
+    // Optimisation : si nous avons dépassé la phase de décroissance, le boost est constant (minBoost).
+    // Nous pouvons calculer analytiquement la contribution restante afin d’éviter d’itérer sur des millions de tranches.
+    if (i >= bnDecaySlices.toNumber()) {
+      const remainingLiquidityWidth = bnTotalLiquidityWidth.minus(new BigNumber(i).multipliedBy(bnSliceWidth));
+      if (remainingLiquidityWidth.isGreaterThan(0)) {
+        const remainingPortion = remainingLiquidityWidth.dividedBy(bnSliceWidth);
+        bnTotalBoostAccumulated = bnTotalBoostAccumulated.plus(new BigNumber(minBoost).multipliedBy(remainingPortion));
+        bnTotalPortionAccumulated = bnTotalPortionAccumulated.plus(remainingPortion);
+
+        logInTerminal("debug", [
+          `Optimization triggered at slice #${i}. Remaining width: ${remainingLiquidityWidth.toNumber()}`,
+          `Added remaining portion: ${remainingPortion.toNumber()} with boost: ${minBoost}`,
+        ]);
+      }
+      break;
+    }
+
     let actualSlicePortion = new BigNumber(1); // Par défaut, la tranche est complète
 
     // Déterminer les bornes de la tranche actuelle
