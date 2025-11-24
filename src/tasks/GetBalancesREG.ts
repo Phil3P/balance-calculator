@@ -207,12 +207,12 @@ async function setupDateRange(allBalancesWallets: Array<RetourREG>, pathFile: st
   // Configure les options de temps
   const optionTime = skipAskNewDate
     ? {
-        skipAsk: skipAskNewDate,
-        startDate: parsed.params.dateStart,
-        endDate: parsed.params.dateEnd,
-        snapshotTime: parsed.params.snapshotTime,
-        currantTimestemp: parsed.params.currantTimestemp,
-      }
+      skipAsk: skipAskNewDate,
+      startDate: parsed.params.dateStart,
+      endDate: parsed.params.dateEnd,
+      snapshotTime: parsed.params.snapshotTime,
+      currantTimestemp: parsed.params.currantTimestemp,
+    }
     : {};
 
   // Retourne la plage de dates configurée
@@ -686,6 +686,7 @@ function updateDexBalance(
       poolAddress: poolAddress,
       equivalentREG: liquidity.equivalentREG ?? "0",
       positionId: isV3 ? positionId : undefined, // Ajouter l'ID de position uniquement pour les DEX V3
+      tokenPosition: liquidity.tokenPosition,
       ...(isV3 && v3Data ? v3Data : {}),
     });
   }

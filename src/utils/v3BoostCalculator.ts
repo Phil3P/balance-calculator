@@ -649,7 +649,7 @@ function validateV3BoostParamsForBoostFormula(
     const upperNull = valueUpper === null;
 
     // Si les deux valeurs sont null, on retourne false
-    if ((isActive && lowerNull === upperNull) || (!isActive && (lowerNull || upperNull))) {
+    if (isActive && lowerNull === upperNull) {
       console.error(
         i18n.t("boostV3Pools.errorValue", {
           nameVariable: "valueLower/valueUpper",

@@ -94,8 +94,8 @@ export function boostBalancesDexs(
               ]);
 
               // Si mode proximity, passer null pour valueLower ou valueUpper selon tokenPosition
-              let effectiveValueLower: number | null = valueLower || 0;
-              let effectiveValueUpper: number | null = valueUpper || 0;
+              let effectiveValueLower: number | null = valueLower ?? null;
+              let effectiveValueUpper: number | null = valueUpper ?? null;
 
               if (v3Config.boostMode === "proximity") {
                 // Si la position est active et tokenPosition est défini,

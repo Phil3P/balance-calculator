@@ -108,6 +108,7 @@ export interface TokenInfo {
   tokenSymbol: string;
   tokenBalance: string;
   equivalentREG: string;
+  tokenPosition?: number;
 }
 
 export interface UserPosition {

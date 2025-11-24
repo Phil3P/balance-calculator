@@ -155,8 +155,8 @@ function responseformaterHoneySwap(pairs: any, targetAddress: string = "all"): R
         targetAddress.toLowerCase() === "all"
           ? pair.liquidityPositions
           : pair.liquidityPositions.filter(
-              (position: any) => position.user.id.toLowerCase() === targetAddress.toLowerCase()
-            );
+            (position: any) => position.user.id.toLowerCase() === targetAddress.toLowerCase()
+          );
 
       // Si aucune position ne correspond à l'adresse cible, ignorer cette paire
       if (filteredPositions.length === 0) {
@@ -185,9 +185,9 @@ function responseformaterHoneySwap(pairs: any, targetAddress: string = "all"): R
                   pair.token0.id === TOKEN_ADDRESS.REG
                     ? tokenBalance0
                     : new BigNumber(pair.reserve0)
-                        .multipliedBy(pair.token1Price)
-                        .multipliedBy(userLiquidityPercentage)
-                        .toString(10),
+                      .multipliedBy(pair.token1Price)
+                      .multipliedBy(userLiquidityPercentage)
+                      .toString(10),
               },
               {
                 tokenId: pair.token1.id as string,
@@ -198,9 +198,9 @@ function responseformaterHoneySwap(pairs: any, targetAddress: string = "all"): R
                   pair.token1.id === TOKEN_ADDRESS.REG
                     ? tokenBalance1
                     : new BigNumber(pair.reserve1)
-                        .multipliedBy(pair.token0Price)
-                        .multipliedBy(userLiquidityPercentage)
-                        .toString(10),
+                      .multipliedBy(pair.token0Price)
+                      .multipliedBy(userLiquidityPercentage)
+                      .toString(10),
               },
             ],
           };
@@ -634,8 +634,8 @@ function responseformaterTypeUniV3(
       targetAddress.toLowerCase() === "all"
         ? poolPositions
         : poolPositions.filter(
-            (position: PositionSushiSwapV3) => position.owner.toLowerCase() === targetAddress.toLowerCase()
-          );
+          (position: PositionSushiSwapV3) => position.owner.toLowerCase() === targetAddress.toLowerCase()
+        );
 
     // Si aucune position ne correspond à l'adresse cible, ignorer ce pool
     if (filteredPoolPositions.length === 0) {
@@ -769,30 +769,32 @@ function responseformaterTypeUniV3(
               tokenDecimals: position.token0Decimals as number,
               tokenSymbol: position.token0Symbol as string,
               tokenBalance: position.adjusted_amount0.toString(10),
+              tokenPosition: 0,
               equivalentREG:
                 position.token0Id === TOKEN_ADDRESS.REG
                   ? position.adjusted_amount0.toString(10)
                   : calculateTokenEquivalentTypeUniV3(
-                      pool,
-                      position.token0Id,
-                      position.token1Id,
-                      position.adjusted_amount0
-                    ),
+                    pool,
+                    position.token0Id,
+                    position.token1Id,
+                    position.adjusted_amount0
+                  ),
             },
             {
               tokenId: position.token1Id as string,
               tokenDecimals: position.token1Decimals as number,
               tokenSymbol: position.token1Symbol as string,
               tokenBalance: position.adjusted_amount1.toString(10),
+              tokenPosition: 1,
               equivalentREG:
                 position.token1Id === TOKEN_ADDRESS.REG
                   ? position.adjusted_amount1.toString(10)
                   : calculateTokenEquivalentTypeUniV3(
-                      pool,
-                      position.token1Id,
-                      position.token0Id,
-                      position.adjusted_amount1
-                    ),
+                    pool,
+                    position.token1Id,
+                    position.token0Id,
+                    position.adjusted_amount1
+                  ),
             },
           ],
         };
