@@ -65,7 +65,7 @@ export function boostBalancesDexs(
           if (isV3Position && isV3ConfigValide) {
             const v3Config = dexOptions.v3;
             const baseBoostREG = dexOptions.default["REG"] ?? dexOptions.default["*"] ?? 1;
-            const baseBoost = dexOptions.default[balance.tokenSymbol] || dexOptions.default["*"] || 1;
+            const tokenMultiplier = dexOptions.default[balance.tokenSymbol] || dexOptions.default["*"] || 1;
 
             const valueLower = v3Config.sourceValue === "tick" ? balance.tickLower : balance.minPrice;
             const valueUpper = v3Config.sourceValue === "tick" ? balance.tickUpper : balance.maxPrice;
@@ -85,12 +85,12 @@ export function boostBalancesDexs(
                 balance.isActive,
                 "balance equivalentREG",
                 balance.equivalentREG,
-                "baseBoost",
-                baseBoost,
+                "tokenMultiplier",
+                tokenMultiplier,
                 "baseBoostREG",
                 baseBoostREG,
-                "factorREGtoOtherToken",
-                baseBoost / baseBoostREG,
+                "ratioToREG",
+                tokenMultiplier / baseBoostREG,
               ]);
 
               // Si mode proximity, passer null pour valueLower ou valueUpper selon tokenPosition
@@ -138,7 +138,7 @@ export function boostBalancesDexs(
               }
 
               newEquivalentREG = applyV3Boost(
-                baseBoost / baseBoostREG,
+                tokenMultiplier,
                 balance.equivalentREG,
                 balance.isActive || false,
                 effectiveValueLower,
@@ -149,7 +149,7 @@ export function boostBalancesDexs(
             } else {
               // Appliquer le facteur de boost simple si priceRangeMode = "none" ou non défini
               console.info(i18n.t("modifiers.infoApplyModifier", { modifier: "nonePriceRange" }));
-              newEquivalentREG = new BigNumber(balance.equivalentREG).multipliedBy(baseBoost).toString(10);
+              newEquivalentREG = new BigNumber(balance.equivalentREG).multipliedBy(tokenMultiplier).toString(10);
             }
           } else {
             // Fallback sur les positions non-v3

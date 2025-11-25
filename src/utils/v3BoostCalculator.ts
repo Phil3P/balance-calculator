@@ -547,7 +547,7 @@ function calculateProximityBoost(
  * @returns La balance boostée
  */
 export function applyV3Boost(
-  factorREGtoOtherToken: number,
+  tokenMultiplier: number,
   tokenBalance: string,
   isActive: boolean,
   valueLower: number | null,
@@ -561,8 +561,8 @@ export function applyV3Boost(
   }
 
   const balance = new BigNumber(tokenBalance);
-  const boostFactor = calculateV3Boost(isActive, valueLower, valueUpper, currentValue, params) * factorREGtoOtherToken;
-  logInTerminal("debug", ["boostFactor applay", boostFactor, "factorREGtoOtherToken", factorREGtoOtherToken]);
+  const boostFactor = calculateV3Boost(isActive, valueLower, valueUpper, currentValue, params) * tokenMultiplier;
+  logInTerminal("debug", ["boostFactor applay", boostFactor, "tokenMultiplier", tokenMultiplier]);
   return balance.multipliedBy(boostFactor).toString(10);
 }
 
