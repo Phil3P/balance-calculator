@@ -139,6 +139,7 @@ export function boostBalancesDexs(
 
               newEquivalentREG = applyV3Boost(
                 tokenMultiplier,
+                baseBoostREG,
                 balance.equivalentREG,
                 balance.isActive || false,
                 effectiveValueLower,
