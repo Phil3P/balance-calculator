@@ -74,7 +74,11 @@ export interface V3BoostParams {
   // en mode Proximity, les paliers représentent le nombre de tranches (ou "slices" distance du prix) où le boost est appliqué
   steps?: Array<[number, number]>;
 
-  /**
+ // Limites pour neutraliser les ranges trop larges
+  maxRangeWidthValue?: number; // pour sourceValue = "priceDecimals"
+  maxRangeWidthTicks?: number; // pour sourceValue = "tick"
+
+ /**
    * Spécifique au mode "centered"
    */
   rangeWidthFactor?: number; // Facteur d'influence de la largeur de la plage (plus c'est grand, moins la largeur compte)
