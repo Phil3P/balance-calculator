@@ -138,7 +138,7 @@ export function boostBalancesDexs(
               }
 
               newEquivalentREG = applyV3Boost(
-                baseBoost / baseBoostREG,
+                baseBoost,
                 balance.equivalentREG,
                 balance.isActive || false,
                 effectiveValueLower,
