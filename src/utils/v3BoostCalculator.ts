@@ -109,6 +109,15 @@ export function calculateV3Boost(
   if (params.priceRangeMode === "none") {
     return DEFAULT_BOOST_FACTOR;
   }
+  
+// Ajout : neutraliser les plages trop larges
+  const rangeWidth = valueLower !== null && valueUpper !== null ? Math.abs(valueUpper - valueLower) : null;
+  const maxAllowedWidth =
+    params.sourceValue === "tick" ? params.maxRangeWidthTicks ?? 2_000 : params.maxRangeWidthValue ?? 2;
+
+  if (rangeWidth !== null && rangeWidth >= maxAllowedWidth) {
+    return DEFAULT_BOOST_FACTOR;
+  }
 
   // Si le mode est "proximity", utiliser l'algorithme basé sur la proximité
   if (params.boostMode === "proximity") {
