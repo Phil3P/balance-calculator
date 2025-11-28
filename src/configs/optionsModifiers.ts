@@ -62,10 +62,11 @@ export const optionsModifiers: NormalizeOptions = {
         ],
         maxBoost: 5,
         minBoost: 1,
+        inactiveBoost: 1, // Boost pour les positions inactives (out of range) - forcé à 1 pour éviter les boosts élevés sur les pools hors plage
         sliceWidth: 0.1,
         decaySlicesDown: 10,
         decaySlicesUp: 10,
-        //outOfRangeEnabled: true,
+        outOfRangeEnabled: false, // Désactiver le calcul de boost pour les positions hors plage - elles auront toujours inactiveBoost (1)
       },
     },
 
