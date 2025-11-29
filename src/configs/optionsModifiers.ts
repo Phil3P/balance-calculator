@@ -62,8 +62,7 @@ export const optionsModifiers: NormalizeOptions = {
         ],
         maxBoost: 5,
         minBoost: 1,
-        inactiveBoost: 1, // Boost V3 calculé pour les positions inactives (out of range) - utilisé dans calculateV3Boost
-        outOfRangeFinalBoost: 1, // Boost final appliqué aux pools V3 "out of range" - par défaut 1x (pas de boost car ils n'apportent rien à l'écosystème)
+        inactiveBoost: 1, // Boost appliqué aux pools V3 "out of range" - utilisé dans calculateV3Boost et applyV3Boost (bypass de la normalisation avec tokenMultiplier)
         sliceWidth: 0.1,
         decaySlicesDown: 10,
         decaySlicesUp: 10,

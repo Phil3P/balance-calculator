@@ -95,13 +95,6 @@ export interface V3BoostParams {
    */
   maxRangeWidthValue?: number; // Limite de largeur en valeurs de prix (par défaut = 2)
   maxRangeWidthTicks?: number; // Limite de largeur en ticks (par défaut = 2000)
-
-  /**
-   * Boost final pour les positions "out of range"
-   * Si défini, les pools V3 "out of range" auront ce boost au lieu du boost de base (tokenMultiplier)
-   * Par défaut = 1 (pas de boost, car les pools "out of range" n'apportent rien à l'écosystème)
-   */
-  outOfRangeFinalBoost?: number; // Boost final pour les positions inactives (par défaut = 1)
 }
 
 /**
@@ -609,17 +602,18 @@ export function applyV3Boost(
   const minBoost = params.minBoost ?? 1;
   const maxBoost = params.maxBoost ?? 1;
   
-  // Si la position est "out of range" (inactive), appliquer le boost spécifique pour les pools inactifs
+  // Si la position est "out of range" (inactive), appliquer directement inactiveBoost sans normalisation
   // Les pools "out of range" n'apportent rien à l'écosystème et ne devraient pas avoir le même boost que V2
+  // On utilise inactiveBoost (défini dans les paramètres) au lieu de passer par la normalisation avec tokenMultiplier
   if (!isActive) {
-    const outOfRangeFinalBoost = params.outOfRangeFinalBoost ?? 1; // Par défaut = 1 (pas de boost)
+    const inactiveBoostValue = params.inactiveBoost ?? params.minBoost ?? DEFAULT_BOOST_FACTOR;
     logInTerminal("debug", [
-      "Pool V3 out of range - applying outOfRangeFinalBoost",
+      "Pool V3 out of range - applying inactiveBoost directly (bypassing tokenMultiplier normalization)",
       "isActive", isActive,
-      "outOfRangeFinalBoost", outOfRangeFinalBoost,
+      "inactiveBoost", inactiveBoostValue,
       "v3BoostCalculated", v3BoostCalculated,
     ]);
-    return balance.multipliedBy(outOfRangeFinalBoost).toString(10);
+    return balance.multipliedBy(inactiveBoostValue).toString(10);
   }
   
   // Normaliser le boost V3 pour qu'il soit cohérent avec le boost V2
