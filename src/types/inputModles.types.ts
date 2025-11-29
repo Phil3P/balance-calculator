@@ -35,6 +35,9 @@ export interface NormalizeOptions {
 
   // Nouvelle structure pour les boosts de DEX
   boostBalancesDexs?: {
+    default?: { [tokenSymbol: string]: number }; // Multiplicateurs de base globaux
+    defaultV3?: V3Config; // Configuration V3 globale (utilisée par défaut pour tous les DEX)
+  } & {
     [key in DexValue]?: DexBoostConfig | [string[], number[]]; // Support pour l'ancien format pour compatibilité
   };
 

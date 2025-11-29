@@ -5,6 +5,8 @@ import { SourceBalancesREG } from "../types/REG.types.js";
 import { DexBoostConfig, NormalizeOptions } from "../types/inputModles.types.js";
 import { logInTerminal } from "../utils/lib.js";
 import { applyV3Boost } from "../utils/v3BoostCalculator.js";
+import { generateV3RangeForV2Pool } from "../utils/v3RangeHelper.js";
+import { V3BoostParams } from "../utils/v3BoostCalculator.js";
 
 /**
  * Modifie les balances des DEX en fonction des options spécifiées
@@ -44,137 +46,75 @@ export function boostBalancesDexs(
           const oldEquivalentREG = balance.equivalentREG;
           let newEquivalentREG = balance.equivalentREG;
 
-          // Déterminer si c'est une position v3 (présence des champs spécifiques v3)
-          const isV3ConfigValide = isV3Config(dexOptions);
-
-          const isV3Position =
-            balance.isActive !== undefined &&
-            isV3ConfigValide &&
-            ((balance.tickLower !== undefined &&
-              balance.tickUpper !== undefined &&
-              balance.currentTick !== undefined) ||
-              (balance.minPrice !== undefined && balance.maxPrice !== undefined && balance.currentPrice !== undefined));
-
-          // Vérifier si les données de la balance sont complètes pour une position v3
-          if (!isV3Position && isV3ConfigValide) {
-            console.error(i18n.t("modifiers.errorDataBalanceNotComplete", { balanceID: balance.positionId }));
-            throw new Error(i18n.t("modifiers.errorDataBalanceNotComplete", { balanceID: balance.positionId }));
+          // Récupérer la config V3 (depuis defaultV3 ou override DEX)
+          const v3Config = getV3Config(dex as DexValue, options);
+          if (!v3Config) {
+            console.warn(`No V3 config found for ${dex}, skipping boost`);
+            return;
           }
 
-          // Appliquer le boost selon le type de configuration et de position
-          if (isV3Position && isV3ConfigValide) {
-            const v3Config = dexOptions.v3;
-            const baseBoostREG = dexOptions.default["REG"] ?? dexOptions.default["*"] ?? 1;
-            const tokenMultiplier = dexOptions.default[balance.tokenSymbol] || dexOptions.default["*"] || 1;
+          // Récupérer les multiplicateurs de base
+          const defaultConfig = getDefaultConfig(dexOptions, options);
+          const baseBoostREG = defaultConfig["REG"] ?? defaultConfig["*"] ?? 1;
+          const tokenMultiplier = defaultConfig[balance.tokenSymbol] || defaultConfig["*"] || 1;
 
-            const valueLower = v3Config.sourceValue === "tick" ? balance.tickLower : balance.minPrice;
-            const valueUpper = v3Config.sourceValue === "tick" ? balance.tickUpper : balance.maxPrice;
-            const currentValue =
-              v3Config.sourceValue === "tick" ? balance.currentTick : parseFloat(balance.currentPrice ?? "0");
+          // Déterminer si c'est une vraie position V3 (a des ranges) ou V2 (pas de ranges)
+          // Vérifier que les valeurs sont des nombres, pas false/undefined
+          const tickLowerRaw = v3Config.sourceValue === "tick" ? balance.tickLower : balance.minPrice;
+          const tickUpperRaw = v3Config.sourceValue === "tick" ? balance.tickUpper : balance.maxPrice;
+          const hasRealRange = typeof tickLowerRaw === "number" && typeof tickUpperRaw === "number";
 
-            if (
-              v3Config.priceRangeMode === "linear" ||
-              v3Config.priceRangeMode === "exponential" ||
-              v3Config.priceRangeMode === "step"
-            ) {
-              logInTerminal("debug", [
-                "DEBUG position",
-                balance.positionId,
-                balance.tokenSymbol,
-                "isActive",
-                balance.isActive,
-                "balance equivalentREG",
-                balance.equivalentREG,
-                "tokenMultiplier",
-                tokenMultiplier,
-                "baseBoostREG",
-                baseBoostREG,
-                "ratioToREG",
-                tokenMultiplier / baseBoostREG,
-              ]);
+          let valueLower: number | null;
+          let valueUpper: number | null;
+          let currentValue: number;
+          let isActive: boolean;
 
-              // Si mode proximity, passer null pour valueLower ou valueUpper selon tokenPosition
-              let effectiveValueLower: number | null = valueLower ?? null;
-              let effectiveValueUpper: number | null = valueUpper ?? null;
-
-              if (v3Config.boostMode === "proximity") {
-                // Si la position est active et tokenPosition est défini,
-                // ajuster les bornes pour la liquidité unilatérale.
-                // Pour les positions inactives, TOUJOURS utiliser valueLower et valueUpper de la position.
-                if (balance.isActive && balance.tokenPosition !== undefined) {
-                  if (balance.tokenPosition === 0) {
-                    // Token0: Liquidity from currentValue to valueUpper
-                    // Passer null pour valueLower
-                    effectiveValueLower = null;
-                  } else if (balance.tokenPosition === 1) {
-                    // Token1: Liquidity from valueLower to currentValue
-                    // Passer null pour valueUpper
-                    effectiveValueUpper = null;
-                  }
-                }
-                // Si la position est inactive, effectiveValueLower et effectiveValueUpper
-                // conserveront les valeurs de valueLower et valueUpper de la position.
-
-                // Cas d'une position active
-                const cv = currentValue || 0;
-                const vl = valueLower || 0;
-                const vu = valueUpper || 0;
-
-                logInTerminal("debug", [
-                  "DEBUG position v3 proximity START",
-                  "tokenPosition",
-                  balance.tokenPosition,
-                  "currentValue",
-                  cv,
-                  "valueLower",
-                  vl,
-                  "valueUpper",
-                  vu,
-                  "effectiveValueLower",
-                  effectiveValueLower,
-                  "effectiveValueUpper",
-                  effectiveValueUpper,
-                ]);
-              }
-
-              newEquivalentREG = applyV3Boost(
-                tokenMultiplier,
-                baseBoostREG,
-                balance.equivalentREG,
-                balance.isActive || false,
-                effectiveValueLower,
-                effectiveValueUpper,
-                currentValue || 0,
-                v3Config
-              );
-            } else {
-              // Appliquer le facteur de boost simple si priceRangeMode = "none" ou non défini
-              console.info(i18n.t("modifiers.infoApplyModifier", { modifier: "nonePriceRange" }));
-              newEquivalentREG = new BigNumber(balance.equivalentREG).multipliedBy(tokenMultiplier).toString(10);
-            }
+          if (hasRealRange) {
+            // V3 réel : utiliser le range réel
+            valueLower = tickLowerRaw as number;
+            valueUpper = tickUpperRaw as number;
+            currentValue =
+              v3Config.sourceValue === "tick"
+                ? (typeof balance.currentTick === "number" ? balance.currentTick : 0)
+                : parseFloat(balance.currentPrice ?? "0");
+            isActive = balance.isActive ?? true;
           } else {
-            // Fallback sur les positions non-v3
-            // Déterminer quel multiplicateur appliquer
-            let boostFactor = 1; // Valeur par défaut si aucun boost n'est applicable
-
-            if (Array.isArray(dexOptions)) {
-              // Ancien format de configuration [tokensToApply, boostFactors]
-              const [tokensToApply, boostFactors] = dexOptions;
-              const symbolIndex = tokensToApply.includes(balance.tokenSymbol)
-                ? tokensToApply.indexOf(balance.tokenSymbol)
-                : tokensToApply.indexOf("*");
-
-              if (symbolIndex >= 0) {
-                boostFactor = boostFactors[symbolIndex];
-              }
-            } else if (dexOptions.default) {
-              // Nouveau format avec configuration default
-              boostFactor = dexOptions.default[balance.tokenSymbol] || dexOptions.default["*"] || 1;
-            }
-
-            // Appliquer le facteur de boost
-            newEquivalentREG = new BigNumber(balance.equivalentREG).multipliedBy(boostFactor).toString(10);
+            // V2 : générer range artificiel
+            const artificialRange = generateV3RangeForV2Pool();
+            valueLower = artificialRange.valueLower;
+            valueUpper = artificialRange.valueUpper;
+            currentValue = parseFloat(balance.currentPrice ?? "0") || 1; // Prix par défaut si non disponible
+            isActive = true; // Range très large = toujours actif
           }
+
+          // Gestion de la liquidité unilatérale pour le mode proximity
+          // S'assurer que les valeurs sont bien des nombres ou null (jamais false)
+          let effectiveValueLower: number | null = typeof valueLower === "number" ? valueLower : null;
+          let effectiveValueUpper: number | null = typeof valueUpper === "number" ? valueUpper : null;
+
+          if (v3Config.boostMode === "proximity" && isActive && balance.tokenPosition !== undefined) {
+            if (balance.tokenPosition === 0) {
+              effectiveValueLower = null; // Token0: liquidité de currentValue à valueUpper
+            } else if (balance.tokenPosition === 1) {
+              effectiveValueUpper = null; // Token1: liquidité de valueLower à currentValue
+            }
+          }
+
+          // TOUJOURS utiliser applyV3Boost() pour toutes les pools
+          // S'assurer que les valeurs sont bien des nombres ou null (jamais false/undefined)
+          const finalValueLower: number | null = typeof effectiveValueLower === "number" ? effectiveValueLower : null;
+          const finalValueUpper: number | null = typeof effectiveValueUpper === "number" ? effectiveValueUpper : null;
+          
+          newEquivalentREG = applyV3Boost(
+            tokenMultiplier,
+            baseBoostREG,
+            balance.equivalentREG,
+            isActive,
+            finalValueLower,
+            finalValueUpper,
+            currentValue,
+            v3Config
+          );
 
           // Mettre à jour la balance avec la nouvelle valeur
           logInTerminal("debug", [
@@ -197,27 +137,62 @@ export function boostBalancesDexs(
 }
 
 /**
- * Vérifie si une configuration de DEX est un objet format avec options v3
- * @param config Configuration de DEX
- * @returns true si c'est une configuration au nouveau format avec les champs v3 et default définis
+ * Récupère la configuration V3 pour un DEX (depuis defaultV3 ou override DEX)
+ * @param dex Nom du DEX
+ * @param options Options de normalisation
+ * @returns Configuration V3 ou null
  */
-function isV3Config(config: DexBoostConfig | [string[], number[]]): config is DexBoostConfig & {
-  v3: NonNullable<DexBoostConfig["v3"]>;
-  default: NonNullable<DexBoostConfig["default"]>;
-} {
-  if (Array.isArray(config)) {
-    return false;
+function getV3Config(dex: DexValue, options: NormalizeOptions["boostBalancesDexs"]): V3BoostParams | null {
+  if (!options) return null;
+
+  // Vérifier si le DEX a une config spécifique avec v3
+  const dexConfig = options[dex];
+  if (dexConfig && !Array.isArray(dexConfig) && dexConfig.v3) {
+    return dexConfig.v3;
   }
-  // Vérifie la présence et la validité des champs requis pour V3Config
-  if (config && typeof config === "object" && config.v3 && config.default) {
-    // Ici, vous pourriez ajouter des vérifications plus granulaires sur la structure de config.v3 et config.default si nécessaire
-    return true;
+
+  // Sinon, utiliser defaultV3 si disponible
+  const defaultV3 = (options as any).defaultV3;
+  if (defaultV3) {
+    return defaultV3;
   }
-  // Optionnel: logguer si la configuration est partiellement correcte mais ne passe pas la validation stricte
-  if (config && typeof config === "object" && (!config.v3 || !config.default)) {
-    console.warn(i18n.t("modifiers.warnV3ConfigPartialCorrectConfig"), config);
+
+  return null;
+}
+
+/**
+ * Récupère la configuration default (multiplicateurs de base)
+ * @param dexOptions Options du DEX
+ * @param options Options globales
+ * @returns Configuration default
+ */
+function getDefaultConfig(
+  dexOptions: DexBoostConfig | [string[], number[]] | undefined,
+  options: NormalizeOptions["boostBalancesDexs"]
+): { [tokenSymbol: string]: number } {
+  // Si format array (ancien format), convertir
+  if (Array.isArray(dexOptions)) {
+    const [tokensToApply, boostFactors] = dexOptions;
+    const result: { [tokenSymbol: string]: number } = {};
+    tokensToApply.forEach((token, index) => {
+      result[token] = boostFactors[index] ?? 1;
+    });
+    return result;
   }
-  return false;
+
+  // Si format objet avec default
+  if (dexOptions && !Array.isArray(dexOptions) && dexOptions.default) {
+    return dexOptions.default;
+  }
+
+  // Sinon, utiliser default global si disponible
+  const globalDefault = (options as any)?.default;
+  if (globalDefault) {
+    return globalDefault;
+  }
+
+  // Par défaut
+  return { "*": 1 };
 }
 
 /**
