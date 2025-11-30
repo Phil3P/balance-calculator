@@ -88,6 +88,13 @@ export interface V3BoostParams {
   decaySlicesDown?: number; // Obligatoire: nombre de tranches pour atteindre minBoost depuis maxBoost (du prix vers le bas)
   decaySlicesUp?: number; // Obligatoire: nombre de tranches pour atteindre minBoost depuis maxBoost (du prix vers le haut)
   outOfRangeEnabled?: boolean; // Optionnel: définir si on calcule pour les positions hors range (par defaut = true)
+
+  /**
+   * Limites de largeur de range pour neutraliser le boost V3
+   * Si le range dépasse ces limites, le boost V3 est forcé à 1 (comportement V2)
+   */
+  maxRangeWidthValue?: number; // Limite de largeur en valeurs de prix (par défaut = 2)
+  maxRangeWidthTicks?: number; // Limite de largeur en ticks (par défaut = 2000)
 }
 
 /**
@@ -107,6 +114,27 @@ export function calculateV3Boost(
   params: V3BoostParams
 ): number {
   if (params.priceRangeMode === "none") {
+    return DEFAULT_BOOST_FACTOR;
+  }
+
+  // Vérification de la largeur du range pour neutraliser les pools V3 "V2-like"
+  // Si le range est trop large, on force le boost V3 à 1 pour éviter les incohérences
+  // avec les pools V2 équivalents (ex: range 0.01-100 avec prix à 0.15 peut donner
+  // un boost V3 élevé alors qu'un pool V2 équivalent n'aurait pas ce boost)
+  const rangeWidth = valueLower !== null && valueUpper !== null ? Math.abs(valueUpper - valueLower) : null;
+  const maxAllowedWidth =
+    params.sourceValue === "tick" ? params.maxRangeWidthTicks ?? 2000 : params.maxRangeWidthValue ?? 2;
+
+  if (rangeWidth !== null && rangeWidth >= maxAllowedWidth) {
+    logInTerminal("debug", [
+      "Range width exceeds limit, forcing boost V3 to 1",
+      "rangeWidth",
+      rangeWidth,
+      "maxAllowedWidth",
+      maxAllowedWidth,
+      "sourceValue",
+      params.sourceValue,
+    ]);
     return DEFAULT_BOOST_FACTOR;
   }
 
@@ -137,6 +165,7 @@ function calculateCenteredBoost(
 ): number {
   // Si la position n'est pas active, on applique uniquement le boost inactif
   if (!isActive) {
+    logInTerminal("debug", ["Centered isActive", isActive]);
     return params.inactiveBoost || params.minBoost || DEFAULT_BOOST_FACTOR;
   }
 
@@ -157,12 +186,24 @@ function calculateCenteredBoost(
   const centeredness = 1 - Math.abs(relativePosition - 0.5) * 2;
   logInTerminal("debug", ["centeredness", centeredness]);
   // Calcul du modificateur de largeur de plage
-  const rangeWidthFactorBoost =
-    rangeWidthFactor >= 0
-      ? Math.max(1, valueWidth / rangeWidthFactor)
-      : Math.max(1, (rangeWidthFactor / valueWidth) * -1);
+  const clampedRangeWidthFactor = Math.min(1.5, Math.max(0.5, rangeWidthFactor));
+  let rangeWidthFactorBoost: number;
 
-  logInTerminal("debug", ["rangeWidthFactorBoost", rangeWidthFactorBoost]);
+  if (clampedRangeWidthFactor <= 1) {
+    if (valueWidth <= 1) {
+      rangeWidthFactorBoost = 1.5 - 0.5 * Math.pow(valueWidth, 1 - clampedRangeWidthFactor);
+    } else {
+      rangeWidthFactorBoost = 0.5 + 0.5 / Math.pow(valueWidth, 1 - clampedRangeWidthFactor);
+    }
+  } else {
+    if (valueWidth > 1) {
+      rangeWidthFactorBoost = 1.5 - 0.5 / Math.pow(valueWidth, clampedRangeWidthFactor - 1);
+    } else {
+      rangeWidthFactorBoost = 0.5 + 0.5 * Math.pow(valueWidth, clampedRangeWidthFactor - 1);
+    }
+  }
+
+  logInTerminal("debug", ["rangeWidthFactor", rangeWidthFactor, "rangeClamped", clampedRangeWidthFactor, "rangeWidthValue", valueWidth, "rangeWidthFactorBoost", rangeWidthFactorBoost]);
 
   // Calcul du boost en fonction du mode sélectionné
   let boost: number;
@@ -210,7 +251,7 @@ function calculateCenteredBoost(
       break;
 
     default:
-      boost = maxBoost;
+      boost = minBoost;
   }
 
   // Application du modificateur de largeur de plage et du boost de base pour positions actives
@@ -222,7 +263,7 @@ function calculateCenteredBoost(
     "finalBoost function calculateCenteredBoost:",
     boost * rangeWidthFactorBoost,
   ]);
-  return boost * rangeWidthFactorBoost;
+  return Math.max(minBoost, boost * rangeWidthFactorBoost);
 }
 
 /**
@@ -262,6 +303,7 @@ function calculateProximityBoost(
   // Gestion explicite du cas où la position est inactive (hors de la plage de prix)
   if (!isActive) {
     if (!outOfRangeEnabled) {
+      logInTerminal("debug", ["Proximity isOutOfRangeEnabled", outOfRangeEnabled]);
       return params.inactiveBoost || minBoost || DEFAULT_BOOST_FACTOR; // Si outOfRangeEnabled est désactivé, retourner inactiveBoost ou minBoost
     }
 
@@ -301,11 +343,12 @@ function calculateProximityBoost(
       bnEffectiveReferencePoint = bnLowerValue;
       direction = -1; // Direction de prix vers la borne inférieure
     } else {
-     // Sinon, cas du prix inférieur à la borne basse
+      // Sinon, cas du prix inférieur à la borne basse
       // Calcul du seuil bas : borne basse - (nombre de slices * largeur slice)
       const seuilBas = bnLowerValue.minus(bnSliceWidth.multipliedBy(decaySlicesDown));
       // isOutOfRange = true (trop éloigné du prix) si le prix est plus petit que le seuil bas
       const isOutOfRange = bnCurrentValue.isLessThan(seuilBas);
+      logInTerminal("debug", ["isOutOfRange upper", isOutOfRange]);
       if (isOutOfRange) {
         return minBoost;
       }
@@ -333,9 +376,27 @@ function calculateProximityBoost(
   logInTerminal("debug", ["Total Slices in Liquidity Range", totalSlicesInLiquidity]);
   logInTerminal("debug", ["Mode de décroissance", params.priceRangeMode]);
   let bnTotalBoostAccumulated = new BigNumber(0);
+  let bnTotalPortionAccumulated = new BigNumber(0);
   const bnDecaySlices = direction === 1 ? new BigNumber(decaySlicesUp) : new BigNumber(decaySlicesDown);
 
   for (let i = 0; i < totalSlicesInLiquidity; i++) {
+    // Optimisation : si nous avons dépassé la phase de décroissance, le boost est constant (minBoost).
+    // Nous pouvons calculer analytiquement la contribution restante afin d’éviter d’itérer sur des millions de tranches.
+    if (i >= bnDecaySlices.toNumber()) {
+      const remainingLiquidityWidth = bnTotalLiquidityWidth.minus(new BigNumber(i).multipliedBy(bnSliceWidth));
+      if (remainingLiquidityWidth.isGreaterThan(0)) {
+        const remainingPortion = remainingLiquidityWidth.dividedBy(bnSliceWidth);
+        bnTotalBoostAccumulated = bnTotalBoostAccumulated.plus(new BigNumber(minBoost).multipliedBy(remainingPortion));
+        bnTotalPortionAccumulated = bnTotalPortionAccumulated.plus(remainingPortion);
+
+        logInTerminal("debug", [
+          `Optimization triggered at slice #${i}. Remaining width: ${remainingLiquidityWidth.toNumber()}`,
+          `Added remaining portion: ${remainingPortion.toNumber()} with boost: ${minBoost}`,
+        ]);
+      }
+      break;
+    }
+
     let actualSlicePortion = new BigNumber(1); // Par défaut, la tranche est complète
 
     // Déterminer les bornes de la tranche actuelle
@@ -346,29 +407,30 @@ function calculateProximityBoost(
     if (!isActive) {
       // logInTerminal("debug", ["direction === 1","bnLowerValue", bnLowerValue, "bnCurrentValue", bnCurrentValue, "bnIterationSliceEnd", bnIterationSliceEnd, "bnCurrentValue.isLessThan(bnLowerValue)", bnCurrentValue.isLessThan(bnLowerValue),"bnIterationSliceEnd.isGreaterThan(bnLowerValue)", bnIterationSliceEnd.isGreaterThan(bnLowerValue), ]);
       // Pondération générique par chevauchement quand le range est inactif
-          const bnSliceMin = BigNumber.min(bnIterationSliceStart, bnIterationSliceEnd);
-          const bnSliceMax = BigNumber.max(bnIterationSliceStart, bnIterationSliceEnd);
-          const bnRangeMin = BigNumber.min(bnLowerValue, bnUpperValue);
-          const bnRangeMax = BigNumber.max(bnLowerValue, bnUpperValue);
-    
-          const bnOverlapStart = BigNumber.max(bnSliceMin, bnRangeMin);
-          const bnOverlapEnd = BigNumber.min(bnSliceMax, bnRangeMax);
-          const bnOverlapLen = BigNumber.max(new BigNumber(0), bnOverlapEnd.minus(bnOverlapStart));
-    
-          actualSlicePortion = bnOverlapLen.dividedBy(bnSliceWidth);
-        } 
-        else {
-        // Ajuster la fin de la dernière tranche pour ne pas dépasser effectiveReferencePoint
-        if (direction === 1 && bnIterationSliceEnd.isGreaterThan(bnEffectiveReferencePoint)) {
-          actualSlicePortion = bnEffectiveReferencePoint.minus(bnIterationSliceStart).dividedBy(bnSliceWidth);
-          bnIterationSliceEnd = bnEffectiveReferencePoint;
-        } else if (direction === -1 && bnIterationSliceEnd.isLessThan(bnEffectiveReferencePoint)) {
-          actualSlicePortion = bnIterationSliceStart.minus(bnEffectiveReferencePoint).dividedBy(bnSliceWidth);
-          bnIterationSliceEnd = bnEffectiveReferencePoint;
-        }
-        }
-      // Si actualSlicePortion est < 0, on arrête
-        if (actualSlicePortion.isLessThan(0)) break;
+      const bnSliceMin = BigNumber.min(bnIterationSliceStart, bnIterationSliceEnd);
+      const bnSliceMax = BigNumber.max(bnIterationSliceStart, bnIterationSliceEnd);
+      const bnRangeMin = BigNumber.min(bnLowerValue, bnUpperValue);
+      const bnRangeMax = BigNumber.max(bnLowerValue, bnUpperValue);
+
+      const bnOverlapStart = BigNumber.max(bnSliceMin, bnRangeMin);
+      const bnOverlapEnd = BigNumber.min(bnSliceMax, bnRangeMax);
+      const bnOverlapLen = BigNumber.max(new BigNumber(0), bnOverlapEnd.minus(bnOverlapStart));
+
+      actualSlicePortion = bnOverlapLen.dividedBy(bnSliceWidth);
+    }
+    else {
+      // Ajuster la fin de la dernière tranche pour ne pas dépasser effectiveReferencePoint
+      if (direction === 1 && bnIterationSliceEnd.isGreaterThan(bnEffectiveReferencePoint)) {
+        actualSlicePortion = bnEffectiveReferencePoint.minus(bnIterationSliceStart).dividedBy(bnSliceWidth);
+        bnIterationSliceEnd = bnEffectiveReferencePoint;
+      } else if (direction === -1 && bnIterationSliceEnd.isLessThan(bnEffectiveReferencePoint)) {
+        actualSlicePortion = bnIterationSliceStart.minus(bnEffectiveReferencePoint).dividedBy(bnSliceWidth);
+        bnIterationSliceEnd = bnEffectiveReferencePoint;
+      }
+    }
+    // Si actualSlicePortion est < 0, on arrête
+    if (actualSlicePortion.isLessThan(0)) break;
+
     // slicesAway est maintenant simplement 'i' car on part de currentValue
     const slicesAway = i;
 
@@ -392,7 +454,8 @@ function calculateProximityBoost(
                   .multipliedBy(new BigNumber(1).minus(decayProgress).pow(params.exponent!))
               )
               .toNumber();
-
+            logInTerminal("debug", ["Proximity exponential inactif", "decayProgress", decayProgress.toNumber(),
+              "sliceBoostNum", sliceBoostNum])
             break;
 
           case BoostFormulaValues.STEP:
@@ -400,15 +463,10 @@ function calculateProximityBoost(
             sliceBoostNum = minBoost;
 
             // Trier les paliers du plus grand seuil au plus petit
-            const sortedSteps = [...params.steps!].sort((a, b) => b[0] - a[0]);
+            const sortedSteps = [...params.steps!].sort((a, b) => a[0] - b[0]);
 
-            logInTerminal("debug", [
-              "proximity step mode",
-              "decayProgress",
-              decayProgress.toNumber(),
-              "sortedSteps",
-              sortedSteps,
-            ]);
+            logInTerminal("debug", ["Proximity step inactif", "decayProgress", decayProgress.toNumber(),
+              "sortedSteps", sortedSteps]);
 
             // Trouver le premier palier dont le seuil est inférieur ou égal au decayProgress
             for (const [threshold, boostValue] of sortedSteps) {
@@ -427,6 +485,8 @@ function calculateProximityBoost(
             sliceBoostNum = new BigNumber(maxBoost)
               .minus(new BigNumber(maxBoost).minus(minBoost).multipliedBy(decayProgress))
               .toNumber();
+            logInTerminal("debug", ["Proximity linear inactif", "decayProgress", decayProgress.toNumber(),
+              "sliceBoostNum", sliceBoostNum]);
             break;
         }
       }
@@ -447,13 +507,8 @@ function calculateProximityBoost(
                   .multipliedBy(new BigNumber(1).minus(decayProgress).pow(params.exponent!))
               )
               .toNumber();
-            logInTerminal("debug", [
-              "exponential mode",
-              "decayProgress",
-              decayProgress.toNumber(),
-              "sliceBoostNum",
-              sliceBoostNum,
-            ]);
+            logInTerminal("debug", ["Proximity exponential actif", "decayProgress", decayProgress.toNumber(),
+              "sliceBoostNum", sliceBoostNum]);
             break;
 
           case BoostFormulaValues.STEP:
@@ -463,19 +518,14 @@ function calculateProximityBoost(
             // Trier les paliers du plus grand seuil au plus petit
             const sortedSteps = [...params.steps!].sort((a, b) => a[0] - b[0]);
 
+            logInTerminal("debug", ["Proximity step actif", "decayProgress", decayProgress.toNumber(),
+              "sortedSteps", sortedSteps]);
+
             // Trouver le premier palier dont le seuil est inférieur ou égal au decayProgress
             for (const [threshold, boostValue] of sortedSteps) {
               if (decayProgress.isLessThanOrEqualTo(threshold)) {
                 sliceBoostNum = boostValue;
-                logInTerminal("debug", [
-                  "proximity step applied",
-                  "threshold",
-                  threshold,
-                  "decayProgress",
-                  decayProgress.toNumber(),
-                  "boostValue",
-                  boostValue,
-                ]);
+                logInTerminal("debug", ["step applied", "threshold", threshold, "boostValue", boostValue,]);
                 break;
               }
             }
@@ -488,6 +538,8 @@ function calculateProximityBoost(
             sliceBoostNum = new BigNumber(maxBoost)
               .minus(new BigNumber(maxBoost).minus(minBoost).multipliedBy(decayProgress))
               .toNumber();
+            logInTerminal("debug", ["Proximity linear actif", "decayProgress", decayProgress.toNumber(),
+              "sliceBoostNum", sliceBoostNum]);
             break;
         }
       }
@@ -497,6 +549,7 @@ function calculateProximityBoost(
     bnTotalBoostAccumulated = bnTotalBoostAccumulated.plus(
       new BigNumber(sliceBoostNum).multipliedBy(actualSlicePortion)
     );
+    bnTotalPortionAccumulated = bnTotalPortionAccumulated.plus(actualSlicePortion);
 
     logInTerminal("debug", [
       `Slice #${i}: Start ${bnIterationSliceStart.toNumber()}, End ${bnIterationSliceEnd.toNumber()}, Portion ${actualSlicePortion.toNumber()}, Away ${slicesAway}, Boost ${sliceBoostNum}`,
@@ -504,8 +557,8 @@ function calculateProximityBoost(
     ]);
   }
 
-  // L'averageBoost est la somme des boosts pondérés divisée par le nombre total de tranches *théoriques*
-  const averageBoost = bnTotalBoostAccumulated.dividedBy(bnTotalSlicesInLiquidity).toNumber();
+  // L'averageBoost est la somme des boosts pondérés divisée par le total des portions cumulés
+  const averageBoost = bnTotalBoostAccumulated.dividedBy(bnTotalPortionAccumulated).toNumber();
 
   logInTerminal("debug", ["Average Boost", averageBoost]);
   return averageBoost;
@@ -513,6 +566,8 @@ function calculateProximityBoost(
 
 /**
  * Calcule le boost total à appliquer à une position v3
+ * @param tokenMultiplier Multiplicateur de base pour le token (boost V2)
+ * @param baseBoostREG Multiplicateur de base pour REG (boost V2 de référence)
  * @param tokenBalance Balance de tokens dans la position
  * @param isActive Si la position est active
  * @param valueLower Valeur inférieure
@@ -522,7 +577,8 @@ function calculateProximityBoost(
  * @returns La balance boostée
  */
 export function applyV3Boost(
-  factorREGtoOtherToken: number,
+  tokenMultiplier: number,
+  baseBoostREG: number,
   tokenBalance: string,
   isActive: boolean,
   valueLower: number | null,
@@ -530,14 +586,73 @@ export function applyV3Boost(
   currentValue: number,
   params: V3BoostParams
 ): string {
+  // Normaliser les valeurs : convertir false/undefined en null, garder les nombres
+  const normalizedValueLower: number | null = typeof valueLower === "number" ? valueLower : null;
+  const normalizedValueUpper: number | null = typeof valueUpper === "number" ? valueUpper : null;
+  
   // Vérifier si les paramètres de boost sont valides pour le mode sélectionné
-  if (!validateV3BoostParamsForBoostFormula(params, valueLower, valueUpper, isActive)) {
+  if (!validateV3BoostParamsForBoostFormula(params, normalizedValueLower, normalizedValueUpper, isActive)) {
     throw new Error(i18n.t("boostV3Pools.errorInvalidBoostParams", { modeName: params.priceRangeMode }));
   }
 
   const balance = new BigNumber(tokenBalance);
-  const boostFactor = calculateV3Boost(isActive, valueLower, valueUpper, currentValue, params) * factorREGtoOtherToken;
-  logInTerminal("debug", ["boostFactor applay", boostFactor, "factorREGtoOtherToken", factorREGtoOtherToken]);
+  
+  // Calculer le boost V3 (facteur absolu entre minBoost et maxBoost)
+  // Note: Si le range est trop large (dépasse maxRangeWidthValue/maxRangeWidthTicks),
+  // calculateV3Boost retourne DEFAULT_BOOST_FACTOR (1), ce qui garantit un comportement V2
+  const v3BoostCalculated = calculateV3Boost(isActive, normalizedValueLower, normalizedValueUpper, currentValue, params);
+  
+  // Récupérer minBoost et maxBoost depuis les paramètres pour la normalisation
+  const minBoost = params.minBoost ?? 1;
+  const maxBoost = params.maxBoost ?? 1;
+  
+  // Si la position est "out of range" (inactive), appliquer directement inactiveBoost sans normalisation
+  // Les pools "out of range" n'apportent rien à l'écosystème et ne devraient pas avoir le même boost que V2
+  // On utilise inactiveBoost (défini dans les paramètres) au lieu de passer par la normalisation avec tokenMultiplier
+  if (!isActive) {
+    const inactiveBoostValue = params.inactiveBoost ?? params.minBoost ?? DEFAULT_BOOST_FACTOR;
+    logInTerminal("debug", [
+      "Pool V3 out of range - applying inactiveBoost directly (bypassing tokenMultiplier normalization)",
+      "isActive", isActive,
+      "inactiveBoost", inactiveBoostValue,
+      "v3BoostCalculated", v3BoostCalculated,
+    ]);
+    return balance.multipliedBy(inactiveBoostValue).toString(10);
+  }
+  
+  // Normaliser le boost V3 pour qu'il soit cohérent avec le boost V2
+  // Cette normalisation combine deux mécanismes :
+  // 1. Le seuil de largeur (dans calculateV3Boost) : force boost V3 = 1 si range trop large
+  // 2. Le mapping (ici) : transforme le boost V3 en boost final aligné avec V2
+  // 
+  // Formule: boost_final = tokenMultiplier × (1 + (v3BoostCalculated - minBoost) / (maxBoost - minBoost) × (maxBoost / baseBoostREG - 1))
+  // - Pour un range large (v3BoostCalculated ≈ minBoost ou = 1 si seuil dépassé): boost_final ≈ tokenMultiplier (équivalent au boost V2)
+  // - Pour un range concentré (v3BoostCalculated ≈ maxBoost): boost_final > tokenMultiplier (meilleur que V2)
+  const boostRange = maxBoost - minBoost;
+  let boostFactor: number;
+  
+  if (boostRange === 0) {
+    // Cas où minBoost === maxBoost, on applique simplement le ratio
+    boostFactor = tokenMultiplier * (v3BoostCalculated / baseBoostREG);
+  } else {
+    // Mapping linéaire de [minBoost, maxBoost] vers [tokenMultiplier, tokenMultiplier × (maxBoost / baseBoostREG)]
+    // Si v3BoostCalculated = 1 (range trop large), et minBoost = 1, alors normalizedPosition = 0
+    // et boostFactor = tokenMultiplier (comportement V2 garanti)
+    const normalizedPosition = (v3BoostCalculated - minBoost) / boostRange;
+    const maxBoostRatio = maxBoost / baseBoostREG;
+    boostFactor = tokenMultiplier * (1 + normalizedPosition * (maxBoostRatio - 1));
+  }
+  
+  logInTerminal("debug", [
+    "boostFactor applyV3Boost",
+    "v3BoostCalculated", v3BoostCalculated,
+    "minBoost", minBoost,
+    "maxBoost", maxBoost,
+    "tokenMultiplier", tokenMultiplier,
+    "baseBoostREG", baseBoostREG,
+    "boostFactor (normalisé)", boostFactor
+  ]);
+  
   return balance.multipliedBy(boostFactor).toString(10);
 }
 
@@ -636,12 +751,16 @@ function validateV3BoostParamsForBoostFormula(
 
   // Vérification des paramètres communs pour le mode "proximity"
   if (params.boostMode === BoostModeValues.PROXIMITY) {
+    // Normaliser les valeurs : convertir false/undefined en null, garder les nombres
+    const normalizedLower: number | null = typeof valueLower === "number" ? valueLower : null;
+    const normalizedUpper: number | null = typeof valueUpper === "number" ? valueUpper : null;
+    
     // Vérifier si les valeurs de valueLower et valueUpper sont null, seulement un des deux peut être null
-    const lowerNull = valueLower === null;
-    const upperNull = valueUpper === null;
+    const lowerNull = normalizedLower === null;
+    const upperNull = normalizedUpper === null;
 
     // Si les deux valeurs sont null, on retourne false
-    if ((isActive && lowerNull === upperNull) || (!isActive && (lowerNull || upperNull))) {
+    if (isActive && lowerNull && upperNull) {
       console.error(
         i18n.t("boostV3Pools.errorValue", {
           nameVariable: "valueLower/valueUpper",
