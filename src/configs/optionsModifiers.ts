@@ -43,7 +43,7 @@ const excludeAddressREG = [
 export const optionsModifiers: NormalizeOptions = {
   excludeAddresses: excludeAddressREG,
   boostBalancesDexs: {
-    // Multiplicateurs de base globaux (utilisés pour la normalisation dans applyV3Boost)
+    // Multiplicateurs de base globaux (utilisés pour le calcul du boost final)
     default: {
       REG: 4, // Multiplicateur de base pour REG
       "*": 2, // Multiplicateur de base pour tous les autres tokens

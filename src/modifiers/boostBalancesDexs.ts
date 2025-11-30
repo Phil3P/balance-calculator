@@ -55,7 +55,6 @@ export function boostBalancesDexs(
 
           // Récupérer les multiplicateurs de base
           const defaultConfig = getDefaultConfig(dexOptions, options);
-          const baseBoostREG = defaultConfig["REG"] ?? defaultConfig["*"] ?? 1;
           const tokenMultiplier = defaultConfig[balance.tokenSymbol] || defaultConfig["*"] || 1;
 
           // Déterminer si c'est une vraie position V3 (a des ranges) ou V2 (pas de ranges)
@@ -107,7 +106,6 @@ export function boostBalancesDexs(
           
           newEquivalentREG = applyV3Boost(
             tokenMultiplier,
-            baseBoostREG,
             balance.equivalentREG,
             isActive,
             finalValueLower,
