@@ -586,8 +586,12 @@ export function applyV3Boost(
   currentValue: number,
   params: V3BoostParams
 ): string {
+  // Normaliser les valeurs : convertir false/undefined en null, garder les nombres
+  const normalizedValueLower: number | null = typeof valueLower === "number" ? valueLower : null;
+  const normalizedValueUpper: number | null = typeof valueUpper === "number" ? valueUpper : null;
+  
   // Vérifier si les paramètres de boost sont valides pour le mode sélectionné
-  if (!validateV3BoostParamsForBoostFormula(params, valueLower, valueUpper, isActive)) {
+  if (!validateV3BoostParamsForBoostFormula(params, normalizedValueLower, normalizedValueUpper, isActive)) {
     throw new Error(i18n.t("boostV3Pools.errorInvalidBoostParams", { modeName: params.priceRangeMode }));
   }
 
@@ -596,7 +600,7 @@ export function applyV3Boost(
   // Calculer le boost V3 (facteur absolu entre minBoost et maxBoost)
   // Note: Si le range est trop large (dépasse maxRangeWidthValue/maxRangeWidthTicks),
   // calculateV3Boost retourne DEFAULT_BOOST_FACTOR (1), ce qui garantit un comportement V2
-  const v3BoostCalculated = calculateV3Boost(isActive, valueLower, valueUpper, currentValue, params);
+  const v3BoostCalculated = calculateV3Boost(isActive, normalizedValueLower, normalizedValueUpper, currentValue, params);
   
   // Récupérer minBoost et maxBoost depuis les paramètres pour la normalisation
   const minBoost = params.minBoost ?? 1;
@@ -747,12 +751,16 @@ function validateV3BoostParamsForBoostFormula(
 
   // Vérification des paramètres communs pour le mode "proximity"
   if (params.boostMode === BoostModeValues.PROXIMITY) {
+    // Normaliser les valeurs : convertir false/undefined en null, garder les nombres
+    const normalizedLower: number | null = typeof valueLower === "number" ? valueLower : null;
+    const normalizedUpper: number | null = typeof valueUpper === "number" ? valueUpper : null;
+    
     // Vérifier si les valeurs de valueLower et valueUpper sont null, seulement un des deux peut être null
-    const lowerNull = valueLower === null;
-    const upperNull = valueUpper === null;
+    const lowerNull = normalizedLower === null;
+    const upperNull = normalizedUpper === null;
 
     // Si les deux valeurs sont null, on retourne false
-    if (isActive && lowerNull === upperNull) {
+    if (isActive && lowerNull && upperNull) {
       console.error(
         i18n.t("boostV3Pools.errorValue", {
           nameVariable: "valueLower/valueUpper",

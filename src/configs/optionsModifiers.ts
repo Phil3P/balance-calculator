@@ -1,5 +1,5 @@
 import { NormalizeOptions } from "../types/inputModles.types.js";
-import dexConfig from "./dex.json" assert { type: "json" };
+import dexConfig from "./dex.json" with { type: "json" };
 
 /**
  * Fonction pour extraire toutes les adresses de pool du fichier de configuration dex.json
@@ -43,48 +43,58 @@ const excludeAddressREG = [
 export const optionsModifiers: NormalizeOptions = {
   excludeAddresses: excludeAddressREG,
   boostBalancesDexs: {
+    // Multiplicateurs de base globaux (utilisés pour la normalisation dans applyV3Boost)
+    default: {
+      REG: 4, // Multiplicateur de base pour REG
+      "*": 2, // Multiplicateur de base pour tous les autres tokens
+    },
+    // Configuration V3 globale (utilisée par défaut pour tous les DEX)
+    defaultV3: {
+      sourceValue: "priceDecimals",
+      priceRangeMode: "step",
+      boostMode: "proximity",
+      steps: [
+        [0.2, 5], // De 0 à 2 tranches (20% de decaySlices) → boost de 5
+        [0.5, 3], // De 3 à 5 tranches (30% de decaySlices) → boost de 3
+        [0.7, 2], // De 6 à 7 tranches (70% de decaySlices) → boost de 2
+        [1.0, 1], // De 8 à 10 tranches (100% de decaySlices) → boost de 1
+      ],
+      maxBoost: 5,
+      minBoost: 1,
+      inactiveBoost: 1, // Boost appliqué aux pools V3 "out of range"
+      sliceWidth: 0.1,
+      decaySlicesDown: 10,
+      decaySlicesUp: 10,
+      outOfRangeEnabled: false, // Désactiver le calcul de boost pour les positions hors plage
+    },
+    // Spécificités par DEX (override seulement si nécessaire)
     sushiswap: {
       default: {
-        REG: 4, // Multiplicateur de base pour REG
-        "*": 2, // Multiplicateur de base pour tous les autres tokens
+        REG: 4,
+        "*": 2,
       },
-      // Configuration spécifique pour les pools v3 - Mode centrage (comportement historique amélioré)
-      v3: {
-        sourceValue: "priceDecimals",
-        priceRangeMode: "step",
-        boostMode: "proximity",
-        // exponent: 3,
-        steps: [
-          [0.2, 5], // De 0 à 2 tranches (20% de decaySlices) → boost de 5
-          [0.5, 3], // De 3è$p0è  à 5 tranches (30% de decaySlices) → boost de 3
-          [0.7, 2], // De 6 à 7 tranches (70% de decaySlices) → boost de 2
-          [1.0, 1], // De 8 à 10 tranches (100% de decaySlices) → boost de 1
-        ],
-        maxBoost: 5,
-        minBoost: 1,
-        inactiveBoost: 1, // Boost appliqué aux pools V3 "out of range" - utilisé dans calculateV3Boost et applyV3Boost (bypass de la normalisation avec tokenMultiplier)
-        sliceWidth: 0.1,
-        decaySlicesDown: 10,
-        decaySlicesUp: 10,
-        outOfRangeEnabled: false, // Désactiver le calcul de boost pour les positions hors plage - elles auront toujours inactiveBoost (1)
-      },
+      // Hérite de defaultV3, peut override certains paramètres si besoin
     },
-
-    // Configuration pour les autres DEX
-    balancer: [
-      ["REG", "*"],
-      [4, 2],
-    ],
-    honeyswap: [
-      ["REG", "*"],
-      [4, 2],
-    ],
+    balancer: {
+      default: {
+        REG: 4,
+        "*": 2,
+      },
+      // Hérite de defaultV3
+    },
+    honeyswap: {
+      default: {
+        REG: 4,
+        "*": 2,
+      },
+      // Hérite de defaultV3
+    },
     swaprhq: {
       default: {
         REG: 4,
         "*": 2,
       },
-      // Configuration spécifique pour les pools v3
+      // Spécificité: utilise ticks et pas de calcul de concentration
       v3: {
         sourceValue: "tick",
         priceRangeMode: "none",
