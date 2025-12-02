@@ -538,7 +538,7 @@ function calculateProximityBoost(
 
 /**
  * Calcule le boost total à appliquer à une position v3
- * @param tokenMultiplier Multiplicateur de base pour le token (boost V2)
+ * @param baseBoostFactor Facteur de boost de base (baseBoost / baseBoostREG)
  * @param tokenBalance Balance de tokens dans la position
  * @param isActive Si la position est active
  * @param valueLower Valeur inférieure
@@ -548,7 +548,7 @@ function calculateProximityBoost(
  * @returns La balance boostée
  */
 export function applyV3Boost(
-  tokenMultiplier: number,
+  baseBoostFactor: number,
   tokenBalance: string,
   isActive: boolean,
   valueLower: number | null,
@@ -568,44 +568,18 @@ export function applyV3Boost(
   const balance = new BigNumber(tokenBalance);
   
   // Calculer le boost V3 (facteur absolu entre minBoost et maxBoost)
+  // Le paramètre outOfRangeEnabled dans params gère déjà les pools outOfRange
   const v3BoostCalculated = calculateV3Boost(isActive, normalizedValueLower, normalizedValueUpper, currentValue, params);
   
-  // Si la position est "out of range" (inactive), appliquer directement inactiveBoost
-  // Les pools "out of range" n'apportent rien à l'écosystème et ne devraient pas avoir le même boost que V2
-  if (!isActive) {
-    const inactiveBoostValue = params.inactiveBoost ?? params.minBoost ?? DEFAULT_BOOST_FACTOR;
-    logInTerminal("debug", [
-      "Pool V3 out of range - applying inactiveBoost directly",
-      "isActive", isActive,
-      "inactiveBoost", inactiveBoostValue,
-      "v3BoostCalculated", v3BoostCalculated,
-    ]);
-    return balance.multipliedBy(inactiveBoostValue).toString(10);
-  }
-  
-  // Boost final : mapping linéaire de [minBoost, maxBoost] vers [tokenMultiplier, maxBoost]
-  // Cela garantit que le boost final est limité à maxBoost (5) tout en gardant tokenMultiplier comme base
-  const minBoost = params.minBoost ?? 1;
-  const maxBoost = params.maxBoost ?? 1;
-  const boostRange = maxBoost - minBoost;
-  
-  let boostFactor: number;
-  if (boostRange === 0) {
-    // Cas où minBoost === maxBoost, utiliser directement tokenMultiplier
-    boostFactor = tokenMultiplier;
-  } else {
-    // Mapping linéaire : boostFactor va de tokenMultiplier (quand v3BoostCalculated = minBoost) 
-    // à maxBoost (quand v3BoostCalculated = maxBoost)
-    const normalizedPosition = (v3BoostCalculated - minBoost) / boostRange;
-    boostFactor = tokenMultiplier + normalizedPosition * (maxBoost - tokenMultiplier);
-  }
+  // Boost final = produit direct du boost V3 par le facteur de base
+  // REG : baseBoostFactor = 4/4 = 1 → boost de 1 à 5
+  // EqREG : baseBoostFactor = 2/4 = 0.5 → boost de 0.5 à 2.5
+  const boostFactor = v3BoostCalculated * baseBoostFactor;
   
   logInTerminal("debug", [
     "boostFactor applyV3Boost",
     "v3BoostCalculated", v3BoostCalculated,
-    "tokenMultiplier", tokenMultiplier,
-    "minBoost", minBoost,
-    "maxBoost", maxBoost,
+    "baseBoostFactor", baseBoostFactor,
     "boostFactor", boostFactor
   ]);
   
