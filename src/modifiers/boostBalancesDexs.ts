@@ -26,8 +26,8 @@ export function boostBalancesDexs(
     return data;
   }
 
-  // Compteur global pour les positionId (commence à 200001 comme dans le script Python)
-  let globalPositionIdCounter = 200001;
+  // Compteur global pour les positionId
+  let globalPositionIdCounter = 200001; // pour ne pas confondre avec les positionId des pools V3 pour le moment
 
   // Parcourir chaque utilisateur
   return data.map((user) => {
@@ -73,6 +73,7 @@ export function boostBalancesDexs(
 
           // C'est un pool V2 si pas de positionId ET pas de range
           if (!hasPositionId && !hasRealRange) {
+            logInTerminal("debug", [`Detected V2 pool: ${poolKey} with ${poolBalances.length} tokens`]);
             // Dédupliquer par tokenAddress
             const uniqueTokens = new Map<string, any>();
             poolBalances.forEach((balance) => {
@@ -86,10 +87,13 @@ export function boostBalancesDexs(
 
             // Transformer seulement les pools avec exactement 2 tokens
             if (uniqueTokensArray.length === 2) {
+              logInTerminal("debug", [`Will transform V2 pool: ${poolKey} with tokens: ${uniqueTokensArray.map(t => t.tokenSymbol).join(', ')}`]);
               v2PoolsToTransform.set(poolKey, uniqueTokensArray);
               poolBalances.forEach((balance) => {
                 v2BalancesToRemove.add(balance);
               });
+            } else {
+              logInTerminal("debug", [`Skipping V2 pool ${poolKey}: expected 2 tokens, got ${uniqueTokensArray.length}`]);
             }
           }
         });
@@ -99,7 +103,9 @@ export function boostBalancesDexs(
 
         v2PoolsToTransform.forEach((poolBalances, poolKey) => {
           try {
+            logInTerminal("debug", [`Transforming V2 pool ${poolKey} with positionId ${globalPositionIdCounter}`]);
             const transformed = transformV2PoolToV3FullRange(poolBalances, globalPositionIdCounter);
+            logInTerminal("debug", [`Transformed pool ${poolKey}: ${transformed.length} entries created`]);
             v3Replacements.push(...transformed);
             globalPositionIdCounter++;
           } catch (error) {
@@ -110,9 +116,13 @@ export function boostBalancesDexs(
         // Supprimer les entrées V2 et ajouter les entrées V3
         let finalDexBalances = dexBalances;
         if (v2BalancesToRemove.size > 0 || v3Replacements.length > 0) {
+          console.info(`[V2→V3] Replacing ${v2BalancesToRemove.size} V2 entries with ${v3Replacements.length} V3 entries for ${dex}`);
+          logInTerminal("debug", [`Replacing ${v2BalancesToRemove.size} V2 entries with ${v3Replacements.length} V3 entries for ${dex}`]);
           finalDexBalances = dexBalances.filter((balance) => !v2BalancesToRemove.has(balance));
           finalDexBalances.push(...v3Replacements);
           dexs[dex as DexValue] = finalDexBalances as any;
+          console.info(`[V2→V3] Final balances count for ${dex}: ${finalDexBalances.length} (was ${dexBalances.length})`);
+          logInTerminal("debug", [`Final balances count for ${dex}: ${finalDexBalances.length}`]);
         }
 
         // Appliquer le boost à chaque balance du DEX

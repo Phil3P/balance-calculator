@@ -35,6 +35,7 @@ import {
   askUseconfirm,
 } from "../utils/inquirer.js";
 import { readContentFromFile } from "../utils/lib.js";
+import { transformAllV2PoolsToV3 } from "../utils/v3RangeHelper.js";
 
 const __dirname = new URL(".", import.meta.url).pathname;
 
@@ -729,11 +730,14 @@ function writeTempFile(
   pathFile: string,
   typeSumm: "sum" | "average" | "onDay"
 ) {
+  // Transformer toutes les pools V2 en format V3 avant de sauvegarder
+  const transformedBalances = transformAllV2PoolsToV3(balances);
+  
   fs.writeFileSync(
     pathFile,
     JSON.stringify(
       {
-        result: { balances },
+        result: { balances: transformedBalances },
         params: {
           currantTimestemp: timestamp,
           dateCurrant: currentDate,

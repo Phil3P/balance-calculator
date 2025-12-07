@@ -27,6 +27,96 @@ const V2_FULL_RANGE_TICK_UPPER = 887200;
 const REG_ADDRESS = "0x0aa1e96d2a46ec6beb2923de1e61addf5f5f1dce".toLowerCase();
 
 /**
+ * Transforme toutes les pools V2 en format V3 full range dans les données complètes
+ * Cette fonction doit être appelée avant de sauvegarder le fichier JSON
+ * @param balances Tableau de toutes les balances
+ * @returns Tableau de balances avec les pools V2 transformées
+ */
+export function transformAllV2PoolsToV3(balances: any[]): any[] {
+  let globalPositionIdCounter = 200001; // Commencer à 200001 (??)
+
+  return balances.map((wallet) => {
+    const sourceBalance = wallet.sourceBalance || {};
+    
+    // Parcourir tous les réseaux
+    for (const network in sourceBalance) {
+      const networkData = sourceBalance[network];
+      if (!networkData || !networkData.dexs) continue;
+
+      // Parcourir tous les DEX
+      for (const dexName in networkData.dexs) {
+        const dexBalances = networkData.dexs[dexName];
+        if (!Array.isArray(dexBalances) || dexBalances.length === 0) continue;
+
+        // Grouper les balances par poolAddress
+        const balancesByPool = new Map<string, any[]>();
+        dexBalances.forEach((balance) => {
+          const poolKey = balance.poolAddress || "unknown";
+          if (!balancesByPool.has(poolKey)) {
+            balancesByPool.set(poolKey, []);
+          }
+          balancesByPool.get(poolKey)!.push(balance);
+        });
+
+        // Identifier et transformer les pools V2
+        const v2PoolsToTransform = new Map<string, any[]>();
+        const v2BalancesToRemove = new Set<any>();
+
+        balancesByPool.forEach((poolBalances, poolKey) => {
+          const firstBalance = poolBalances[0];
+          const hasPositionId = typeof firstBalance.positionId === "number";
+          const hasTickLower = typeof firstBalance.tickLower === "number";
+          const hasMinPrice = typeof firstBalance.minPrice === "number";
+
+          // C'est un pool V2 si pas de positionId ET pas de range
+          if (!hasPositionId && !hasTickLower && !hasMinPrice) {
+            // Dédupliquer par tokenAddress
+            const uniqueTokens = new Map<string, any>();
+            poolBalances.forEach((balance) => {
+              const addr = balance.tokenAddress?.toLowerCase();
+              if (addr) {
+                uniqueTokens.set(addr, balance);
+              }
+            });
+
+            const uniqueTokensArray = Array.from(uniqueTokens.values());
+
+            // Transformer seulement les pools avec exactement 2 tokens
+            if (uniqueTokensArray.length === 2) {
+              v2PoolsToTransform.set(poolKey, uniqueTokensArray);
+              poolBalances.forEach((balance) => {
+                v2BalancesToRemove.add(balance);
+              });
+            }
+          }
+        });
+
+        // Transformer les pools V2
+        const v3Replacements: any[] = [];
+        v2PoolsToTransform.forEach((poolBalances) => {
+          try {
+            const transformed = transformV2PoolToV3FullRange(poolBalances, globalPositionIdCounter);
+            v3Replacements.push(...transformed);
+            globalPositionIdCounter++;
+          } catch (error) {
+            console.warn(`Failed to transform V2 pool:`, error);
+          }
+        });
+
+        // Remplacer les entrées V2 par les entrées V3
+        if (v2BalancesToRemove.size > 0 || v3Replacements.length > 0) {
+          const newDexBalances = dexBalances.filter((balance) => !v2BalancesToRemove.has(balance));
+          newDexBalances.push(...v3Replacements);
+          networkData.dexs[dexName] = newDexBalances;
+        }
+      }
+    }
+
+    return wallet;
+  });
+}
+
+/**
  * Transforme un pool V2 en format V3 full range
  * @param poolBalances Les deux tokens du pool (doit contenir exactement 2 tokens)
  * @param positionId ID unique pour cette position
@@ -54,7 +144,7 @@ export function transformV2PoolToV3FullRange(
     throw new Error(`Expected exactly 2 unique tokens in pool, got ${tokens.length}`);
   }
 
-  // ★★★★★ FORCE REG AS token0 ★★★★★ (comme dans le script Python)
+  // ★★★★★ FORCE REG AS token0 ★★★★★
   const addr0 = tokens[0].tokenAddress?.toLowerCase() || "";
   const addr1 = tokens[1].tokenAddress?.toLowerCase() || "";
 
@@ -98,10 +188,15 @@ export function transformV2PoolToV3FullRange(
   const minPrice = Math.pow(TICK_BASE, V2_FULL_RANGE_TICK_LOWER);
   const maxPrice = Math.pow(TICK_BASE, V2_FULL_RANGE_TICK_UPPER);
 
-  // Créer les deux entrées V3 (comme dans le script Python)
+  // Créer les deux entrées V3
+  // S'assurer que tokenDecimals est un nombre (peut être une string dans les données)
+  const decimals0 = typeof token0.tokenDecimals === "string" ? parseInt(token0.tokenDecimals) : (token0.tokenDecimals || 18);
+  const decimals1 = typeof token1.tokenDecimals === "string" ? parseInt(token1.tokenDecimals) : (token1.tokenDecimals || 18);
+
   return [
     {
       ...token0,
+      tokenDecimals: decimals0, // S'assurer que c'est un nombre
       positionId,
       tokenPosition: 0,
       isActive: true,
@@ -114,6 +209,7 @@ export function transformV2PoolToV3FullRange(
     },
     {
       ...token1,
+      tokenDecimals: decimals1, // S'assurer que c'est un nombre
       positionId,
       tokenPosition: 1,
       isActive: true,
