@@ -5,7 +5,7 @@ import { SourceBalancesREG } from "../types/REG.types.js";
 import { DexBoostConfig, NormalizeOptions } from "../types/inputModles.types.js";
 import { logInTerminal } from "../utils/lib.js";
 import { applyV3Boost } from "../utils/v3BoostCalculator.js";
-import { generateV3RangeForV2Pool } from "../utils/v3RangeHelper.js";
+import { generateV3RangeForV2Pool, transformV2ToV3FullRange } from "../utils/v3RangeHelper.js";
 import { V3BoostParams } from "../utils/v3BoostCalculator.js";
 
 /**
@@ -40,18 +40,55 @@ export function boostBalancesDexs(
 
         const dexBalances = dexs[dex as DexValue]!;
 
+        // Récupérer la config V3 (depuis defaultV3 ou override DEX)
+        const v3Config = getV3Config(dex as DexValue, options);
+        if (!v3Config) {
+          console.warn(`No V3 config found for ${dex}, skipping boost`);
+          continue;
+        }
+
+        // Transformer les pools V2 en format V3 full range AVANT le calcul
+        // Grouper les balances par poolAddress pour calculer currentPrice correctement
+        const balancesByPool = new Map<string, typeof dexBalances>();
+        dexBalances.forEach((balance) => {
+          const poolKey = balance.poolAddress || "unknown";
+          if (!balancesByPool.has(poolKey)) {
+            balancesByPool.set(poolKey, []);
+          }
+          balancesByPool.get(poolKey)!.push(balance);
+        });
+
+        // Transformer chaque pool V2 en format V3
+        balancesByPool.forEach((poolBalances) => {
+          // Vérifier si c'est un pool V2 (pas de ranges)
+          const firstBalance = poolBalances[0];
+          const tickLowerRaw = v3Config.sourceValue === "tick" ? firstBalance.tickLower : firstBalance.minPrice;
+          const tickUpperRaw = v3Config.sourceValue === "tick" ? firstBalance.tickUpper : firstBalance.maxPrice;
+          const hasRealRange = typeof tickLowerRaw === "number" && typeof tickUpperRaw === "number";
+
+          // Si c'est un pool V2, transformer en format V3 full range
+          if (!hasRealRange) {
+            poolBalances.forEach((balance) => {
+              const v3Data = transformV2ToV3FullRange(balance, poolBalances);
+              // Appliquer les données V3 transformées à la balance
+              balance.positionId = v3Data.positionId;
+              balance.isActive = v3Data.isActive;
+              balance.tickLower = v3Data.tickLower;
+              balance.tickUpper = v3Data.tickUpper;
+              balance.currentTick = v3Data.currentTick;
+              balance.currentPrice = v3Data.currentPrice;
+              balance.minPrice = v3Data.minPrice;
+              balance.maxPrice = v3Data.maxPrice;
+              balance.tokenPosition = v3Data.tokenPosition;
+            });
+          }
+        });
+
         // Appliquer le boost à chaque balance du DEX
         dexBalances.forEach((balance) => {
           // Garder une référence à la balance équivalente REG originale pour mettre à jour les totaux
           const oldEquivalentREG = balance.equivalentREG;
           let newEquivalentREG = balance.equivalentREG;
-
-          // Récupérer la config V3 (depuis defaultV3 ou override DEX)
-          const v3Config = getV3Config(dex as DexValue, options);
-          if (!v3Config) {
-            console.warn(`No V3 config found for ${dex}, skipping boost`);
-            return;
-          }
 
           // Récupérer les multiplicateurs de base
           const defaultConfig = getDefaultConfig(dexOptions, options);
@@ -71,7 +108,7 @@ export function boostBalancesDexs(
           let isActive: boolean;
 
           if (hasRealRange) {
-            // V3 réel : utiliser le range réel
+            // V3 réel : utiliser le range réel (ou V2 transformé)
             valueLower = tickLowerRaw as number;
             valueUpper = tickUpperRaw as number;
             currentValue =
@@ -80,7 +117,7 @@ export function boostBalancesDexs(
                 : parseFloat(balance.currentPrice ?? "0");
             isActive = balance.isActive ?? true;
           } else {
-            // V2 : générer range artificiel
+            // Fallback : générer range artificiel (ne devrait plus arriver après transformation)
             const artificialRange = generateV3RangeForV2Pool();
             valueLower = artificialRange.valueLower;
             valueUpper = artificialRange.valueUpper;
