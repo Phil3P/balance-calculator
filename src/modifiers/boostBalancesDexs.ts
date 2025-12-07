@@ -5,7 +5,7 @@ import { SourceBalancesREG } from "../types/REG.types.js";
 import { DexBoostConfig, NormalizeOptions } from "../types/inputModles.types.js";
 import { logInTerminal } from "../utils/lib.js";
 import { applyV3Boost } from "../utils/v3BoostCalculator.js";
-import { generateV3RangeForV2Pool, transformV2ToV3FullRange } from "../utils/v3RangeHelper.js";
+import { generateV3RangeForV2Pool, transformV2PoolToV3FullRange } from "../utils/v3RangeHelper.js";
 import { V3BoostParams } from "../utils/v3BoostCalculator.js";
 
 /**
@@ -25,6 +25,9 @@ export function boostBalancesDexs(
     console.warn(i18n.t("modifiers.warnNoOptions", { modifier: "boosBalancesDexs" }));
     return data;
   }
+
+  // Compteur global pour les positionId (commence à 200001 comme dans le script Python)
+  let globalPositionIdCounter = 200001;
 
   // Parcourir chaque utilisateur
   return data.map((user) => {
@@ -48,8 +51,11 @@ export function boostBalancesDexs(
         }
 
         // Transformer les pools V2 en format V3 full range AVANT le calcul
-        // Grouper les balances par poolAddress pour calculer currentPrice correctement
+        // Grouper les balances par poolAddress pour identifier les pools V2
         const balancesByPool = new Map<string, typeof dexBalances>();
+        const v2PoolsToTransform = new Map<string, typeof dexBalances>();
+        const v2BalancesToRemove = new Set<any>();
+
         dexBalances.forEach((balance) => {
           const poolKey = balance.poolAddress || "unknown";
           if (!balancesByPool.has(poolKey)) {
@@ -58,34 +64,59 @@ export function boostBalancesDexs(
           balancesByPool.get(poolKey)!.push(balance);
         });
 
-        // Transformer chaque pool V2 en format V3
-        balancesByPool.forEach((poolBalances) => {
-          // Vérifier si c'est un pool V2 (pas de ranges)
+        // Identifier les pools V2 (pas de positionId, pas de tickLower)
+        balancesByPool.forEach((poolBalances, poolKey) => {
           const firstBalance = poolBalances[0];
+          const hasPositionId = typeof firstBalance.positionId === "number";
           const tickLowerRaw = v3Config.sourceValue === "tick" ? firstBalance.tickLower : firstBalance.minPrice;
-          const tickUpperRaw = v3Config.sourceValue === "tick" ? firstBalance.tickUpper : firstBalance.maxPrice;
-          const hasRealRange = typeof tickLowerRaw === "number" && typeof tickUpperRaw === "number";
+          const hasRealRange = typeof tickLowerRaw === "number";
 
-          // Si c'est un pool V2, transformer en format V3 full range
-          if (!hasRealRange) {
+          // C'est un pool V2 si pas de positionId ET pas de range
+          if (!hasPositionId && !hasRealRange) {
+            // Dédupliquer par tokenAddress
+            const uniqueTokens = new Map<string, any>();
             poolBalances.forEach((balance) => {
-              const v3Data = transformV2ToV3FullRange(balance, poolBalances);
-              // Appliquer les données V3 transformées à la balance
-              balance.positionId = v3Data.positionId;
-              balance.isActive = v3Data.isActive;
-              balance.tickLower = v3Data.tickLower;
-              balance.tickUpper = v3Data.tickUpper;
-              balance.currentTick = v3Data.currentTick;
-              balance.currentPrice = v3Data.currentPrice;
-              balance.minPrice = v3Data.minPrice;
-              balance.maxPrice = v3Data.maxPrice;
-              balance.tokenPosition = v3Data.tokenPosition;
+              const addr = balance.tokenAddress?.toLowerCase();
+              if (addr) {
+                uniqueTokens.set(addr, balance);
+              }
             });
+
+            const uniqueTokensArray = Array.from(uniqueTokens.values());
+
+            // Transformer seulement les pools avec exactement 2 tokens
+            if (uniqueTokensArray.length === 2) {
+              v2PoolsToTransform.set(poolKey, uniqueTokensArray);
+              poolBalances.forEach((balance) => {
+                v2BalancesToRemove.add(balance);
+              });
+            }
           }
         });
 
+        // Transformer les pools V2 et remplacer les entrées
+        const v3Replacements: any[] = [];
+
+        v2PoolsToTransform.forEach((poolBalances, poolKey) => {
+          try {
+            const transformed = transformV2PoolToV3FullRange(poolBalances, globalPositionIdCounter);
+            v3Replacements.push(...transformed);
+            globalPositionIdCounter++;
+          } catch (error) {
+            console.warn(`Failed to transform V2 pool ${poolKey}:`, error);
+          }
+        });
+
+        // Supprimer les entrées V2 et ajouter les entrées V3
+        let finalDexBalances = dexBalances;
+        if (v2BalancesToRemove.size > 0 || v3Replacements.length > 0) {
+          finalDexBalances = dexBalances.filter((balance) => !v2BalancesToRemove.has(balance));
+          finalDexBalances.push(...v3Replacements);
+          dexs[dex as DexValue] = finalDexBalances as any;
+        }
+
         // Appliquer le boost à chaque balance du DEX
-        dexBalances.forEach((balance) => {
+        finalDexBalances.forEach((balance) => {
           // Garder une référence à la balance équivalente REG originale pour mettre à jour les totaux
           const oldEquivalentREG = balance.equivalentREG;
           let newEquivalentREG = balance.equivalentREG;

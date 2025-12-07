@@ -24,69 +24,71 @@ export function generateV3RangeForV2Pool(currentPrice?: number): {
 const TICK_BASE = 1.0001;
 const V2_FULL_RANGE_TICK_LOWER = -887200;
 const V2_FULL_RANGE_TICK_UPPER = 887200;
+const REG_ADDRESS = "0x0aa1e96d2a46ec6beb2923de1e61addf5f5f1dce".toLowerCase();
 
 /**
- * Transforme les données d'une pool V2 en format V3 full range
- * @param balance Balance du token à transformer
- * @param allBalances Toutes les balances du même pool (pour calculer currentPrice)
- * @returns Balance transformée avec les champs V3
+ * Transforme un pool V2 en format V3 full range
+ * @param poolBalances Les deux tokens du pool (doit contenir exactement 2 tokens)
+ * @param positionId ID unique pour cette position
+ * @returns Les deux balances transformées avec les champs V3
  */
-export function transformV2ToV3FullRange(
-  balance: any,
-  allBalances: any[]
-): {
-  positionId: number;
-  isActive: boolean;
-  tickLower: number;
-  tickUpper: number;
-  currentTick: number;
-  currentPrice: string;
-  minPrice: number;
-  maxPrice: number;
-  tokenPosition: number;
-} {
-  // Trouver l'autre token de la même position (même poolAddress)
-  const poolBalances = allBalances.filter((b) => b.poolAddress === balance.poolAddress);
-  
-  // Déterminer tokenPosition : 0 pour le premier token, 1 pour le second
-  // Pour V2, on utilise l'ordre alphabétique des symboles ou la présence de REG
-  let tokenPosition = 0;
-  if (poolBalances.length >= 2) {
-    // Trier par ordre alphabétique pour avoir un ordre cohérent
-    const sorted = [...poolBalances].sort((a, b) => a.tokenSymbol.localeCompare(b.tokenSymbol));
-    tokenPosition = sorted.indexOf(balance);
+export function transformV2PoolToV3FullRange(
+  poolBalances: any[],
+  positionId: number
+): any[] {
+  if (poolBalances.length !== 2) {
+    throw new Error(`Expected exactly 2 tokens in pool, got ${poolBalances.length}`);
   }
 
-  // Calculer currentPrice = tokenBalance(token1) / tokenBalance(token0)
-  // Pour V2, on utilise les tokenBalance des deux tokens de la même position
-  // Le prix est calculé comme : montant token1 (en unités réelles) / montant token0 (en unités réelles)
-  let currentPrice = 1;
-  if (poolBalances.length >= 2) {
-    // Trier par ordre alphabétique pour avoir token0 et token1
-    const sorted = [...poolBalances].sort((a, b) => a.tokenSymbol.localeCompare(b.tokenSymbol));
-    const token0 = sorted[0];
-    const token1 = sorted[1];
-    
-    const balance0 = parseFloat(token0.tokenBalance || "0");
-    const balance1 = parseFloat(token1.tokenBalance || "0");
-    
-    if (balance0 > 0) {
-      // Ajuster selon les decimals pour avoir les montants réels
-      const decimals0 = token0.tokenDecimals || 18;
-      const decimals1 = token1.tokenDecimals || 18;
-      const adjustedBalance0 = balance0 / Math.pow(10, decimals0);
-      const adjustedBalance1 = balance1 / Math.pow(10, decimals1);
-      
-      if (adjustedBalance0 > 0) {
-        // currentPrice = montant token1 / montant token0
-        // C'est le prix du token0 en termes de token1
-        currentPrice = adjustedBalance1 / adjustedBalance0;
-      }
+  // Dédupliquer par tokenAddress (au cas où)
+  const uniqueTokens = new Map<string, any>();
+  poolBalances.forEach((token) => {
+    const addr = token.tokenAddress?.toLowerCase();
+    if (addr) {
+      uniqueTokens.set(addr, token);
+    }
+  });
+
+  const tokens = Array.from(uniqueTokens.values());
+  if (tokens.length !== 2) {
+    throw new Error(`Expected exactly 2 unique tokens in pool, got ${tokens.length}`);
+  }
+
+  // ★★★★★ FORCE REG AS token0 ★★★★★ (comme dans le script Python)
+  const addr0 = tokens[0].tokenAddress?.toLowerCase() || "";
+  const addr1 = tokens[1].tokenAddress?.toLowerCase() || "";
+
+  let token0: any;
+  let token1: any;
+
+  if (addr0 === REG_ADDRESS) {
+    token0 = tokens[0];
+    token1 = tokens[1];
+  } else if (addr1 === REG_ADDRESS) {
+    token0 = tokens[1];
+    token1 = tokens[0];
+  } else {
+    // Si pas de REG dans le pool, trier par ordre alphabétique
+    if (addr0 < addr1) {
+      token0 = tokens[0];
+      token1 = tokens[1];
+    } else {
+      token0 = tokens[1];
+      token1 = tokens[0];
     }
   }
 
+  // Calculer currentPrice = tokenBalance(token1) / tokenBalance(token0)
+  // Les tokenBalance sont déjà en unités réelles (pas besoin d'ajuster les decimals)
+  const balance0 = parseFloat(token0.tokenBalance || "0");
+  const balance1 = parseFloat(token1.tokenBalance || "0");
+
+  let currentPrice = 1;
+  if (balance0 > 0) {
+    currentPrice = balance1 / balance0;
+  }
+
   // Calculer currentTick = ln(current_price) / ln(1.0001)
-  // Protection contre les valeurs négatives ou nulles
   if (currentPrice <= 0) {
     currentPrice = 1;
   }
@@ -96,20 +98,32 @@ export function transformV2ToV3FullRange(
   const minPrice = Math.pow(TICK_BASE, V2_FULL_RANGE_TICK_LOWER);
   const maxPrice = Math.pow(TICK_BASE, V2_FULL_RANGE_TICK_UPPER);
 
-  // positionId : 0 ou 1 selon tokenPosition pour un même poolAddress
-  // Pour V2, on utilise tokenPosition comme positionId
-  const positionId = tokenPosition;
-
-  return {
-    positionId,
-    isActive: true, // V2 full range = toujours actif
-    tickLower: V2_FULL_RANGE_TICK_LOWER,
-    tickUpper: V2_FULL_RANGE_TICK_UPPER,
-    currentTick,
-    currentPrice: currentPrice.toString(),
-    minPrice,
-    maxPrice,
-    tokenPosition,
-  };
+  // Créer les deux entrées V3 (comme dans le script Python)
+  return [
+    {
+      ...token0,
+      positionId,
+      tokenPosition: 0,
+      isActive: true,
+      tickLower: V2_FULL_RANGE_TICK_LOWER,
+      tickUpper: V2_FULL_RANGE_TICK_UPPER,
+      currentTick,
+      currentPrice: currentPrice.toString(),
+      minPrice,
+      maxPrice,
+    },
+    {
+      ...token1,
+      positionId,
+      tokenPosition: 1,
+      isActive: true,
+      tickLower: V2_FULL_RANGE_TICK_LOWER,
+      tickUpper: V2_FULL_RANGE_TICK_UPPER,
+      currentTick,
+      currentPrice: currentPrice.toString(),
+      minPrice,
+      maxPrice,
+    },
+  ];
 }
 
