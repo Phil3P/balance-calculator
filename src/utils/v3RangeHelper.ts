@@ -144,7 +144,7 @@ export function transformV2PoolToV3FullRange(
     throw new Error(`Expected exactly 2 unique tokens in pool, got ${tokens.length}`);
   }
 
-  // ★★★★★ FORCE REG AS token0 ★★★★★
+  // Avoir le REG en premier
   const addr0 = tokens[0].tokenAddress?.toLowerCase() || "";
   const addr1 = tokens[1].tokenAddress?.toLowerCase() || "";
 
@@ -168,18 +168,26 @@ export function transformV2PoolToV3FullRange(
     }
   }
 
-  // Calculer currentPrice = tokenBalance(token1) / tokenBalance(token0)
+  // Calculer currentPrice en tenant compte des proportions réelles de la pool
+  // Pour les pools non 50/50 (ex: Balancer 80/20), il faut utiliser equivalentREG
+  // Formule: currentPrice = (tokenBalance(token1) * equivalentREG(token0)) / (tokenBalance(token0) * equivalentREG(token1))
   // Les tokenBalance sont déjà en unités réelles (pas besoin d'ajuster les decimals)
   const balance0 = parseFloat(token0.tokenBalance || "0");
   const balance1 = parseFloat(token1.tokenBalance || "0");
+  const equivalent0 = parseFloat(token0.equivalentREG || "0");
+  const equivalent1 = parseFloat(token1.equivalentREG || "0");
 
   let currentPrice = 1;
-  if (balance0 > 0) {
+  // Utiliser la formule avec equivalentREG si disponible et valide
+  if (balance0 > 0 && equivalent1 > 0) {
+    currentPrice = (balance1 * equivalent0) / (balance0 * equivalent1);
+  } else if (balance0 > 0) {
+    // Fallback sur l'ancienne formule si equivalentREG n'est pas disponible
     currentPrice = balance1 / balance0;
   }
 
   // Calculer currentTick = ln(current_price) / ln(1.0001)
-  if (currentPrice <= 0) {
+  if (currentPrice <= 0 || !isFinite(currentPrice)) {
     currentPrice = 1;
   }
   const currentTick = Math.log(currentPrice) / Math.log(TICK_BASE);

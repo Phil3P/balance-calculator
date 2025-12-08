@@ -50,22 +50,22 @@ export const optionsModifiers: NormalizeOptions = {
     },
     // Configuration V3 globale (utilisée par défaut pour tous les DEX)
     defaultV3: {
-      sourceValue: "priceDecimals",
-      priceRangeMode: "step",
+      sourceValue: "priceDecimals", // priceDecimals ou tick
+      priceRangeMode: "linear", // linear ou step
       boostMode: "proximity",
-      steps: [
-        [0.2, 5], // De 0 à 2 tranches (20% de decaySlices) → boost de 5
-        [0.5, 3], // De 3 à 5 tranches (30% de decaySlices) → boost de 3
-        [0.7, 2], // De 6 à 7 tranches (70% de decaySlices) → boost de 2
-        [1.0, 1], // De 8 à 10 tranches (100% de decaySlices) → boost de 1
-      ],
+      // steps: [
+      //   [0.2, 5], // De 0 à 2 tranches (20% de decaySlices) → boost de 5
+      //   [0.5, 3], // De 3 à 5 tranches (30% de decaySlices) → boost de 3
+      //   [0.7, 2], // De 6 à 7 tranches (70% de decaySlices) → boost de 2
+      //   [1.0, 1], // De 8 à 10 tranches (100% de decaySlices) → boost de 1
+      // ],
       maxBoost: 5,
       minBoost: 1,
-      inactiveBoost: 1, // Boost appliqué aux pools V3 "out of range"
-      sliceWidth: 0.1,
+      // inactiveBoost: 1, // Boost appliqué aux pools V3 "out of range"
+      sliceWidth: 0.05, // 0.1
       decaySlicesDown: 10,
       decaySlicesUp: 10,
-      outOfRangeEnabled: false, // Désactiver le calcul de boost pour les positions hors plage
+      outOfRangeEnabled: true, // Désactiver le calcul de boost pour les positions hors plage
     },
     // Spécificités par DEX (override seulement si nécessaire)
     sushiswap: {
