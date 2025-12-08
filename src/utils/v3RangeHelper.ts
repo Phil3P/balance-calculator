@@ -99,7 +99,9 @@ export function transformAllV2PoolsToV3(balances: any[]): any[] {
             v3Replacements.push(...transformed);
             globalPositionIdCounter++;
           } catch (error) {
-            console.warn(`Failed to transform V2 pool:`, error);
+            console.error(`Failed to transform V2 pool:`, error);
+            // Propager l'erreur car un currentPrice invalide ne devrait pas arriver
+            throw error;
           }
         });
 
@@ -188,7 +190,29 @@ export function transformV2PoolToV3FullRange(
 
   // Calculer currentTick = ln(current_price) / ln(1.0001)
   if (currentPrice <= 0 || !isFinite(currentPrice)) {
-    currentPrice = 1;
+    const poolAddress = token0.poolAddress || "unknown";
+    const token0Symbol = token0.tokenSymbol || "unknown";
+    const token1Symbol = token1.tokenSymbol || "unknown";
+    const errorDetails = {
+      poolAddress,
+      token0Symbol,
+      token1Symbol,
+      balance0,
+      balance1,
+      equivalent0,
+      equivalent1,
+      calculatedPrice: currentPrice,
+    };
+    console.error(
+      `Invalid currentPrice calculated for V2 pool transformation:`,
+      errorDetails
+    );
+    throw new Error(
+      `Cannot calculate valid currentPrice for pool ${poolAddress} (${token0Symbol}/${token1Symbol}). ` +
+        `Balance0: ${balance0}, Balance1: ${balance1}, ` +
+        `Equivalent0: ${equivalent0}, Equivalent1: ${equivalent1}, ` +
+        `Result: ${currentPrice}`
+    );
   }
   const currentTick = Math.log(currentPrice) / Math.log(TICK_BASE);
 
