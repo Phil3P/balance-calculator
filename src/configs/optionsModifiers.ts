@@ -50,7 +50,7 @@ export const optionsModifiers: NormalizeOptions = {
     },
     // Configuration V3 globale (utilisée par défaut pour tous les DEX)
     defaultV3: {
-      sourceValue: "priceDecimals", // priceDecimals ou tick
+      sourceValue: "tick", // priceDecimals ou tick
       priceRangeMode: "linear", // linear ou step
       boostMode: "proximity",
       // steps: [
@@ -62,10 +62,10 @@ export const optionsModifiers: NormalizeOptions = {
       maxBoost: 5,
       minBoost: 1,
       // inactiveBoost: 1, // Boost appliqué aux pools V3 "out of range"
-      sliceWidth: 0.05, // 0.1
+      sliceWidth: 1000, // 0.1 ou 0.05 en priceDecimals, 1000 en tick
       decaySlicesDown: 10,
       decaySlicesUp: 10,
-      outOfRangeEnabled: true, // Désactiver le calcul de boost pour les positions hors plage
+      outOfRangeEnabled: true, // Activer le calcul de boost pour les positions hors plage (avec décroissance basée sur la proximité)
     },
     // Spécificités par DEX (override seulement si nécessaire)
     sushiswap: {
