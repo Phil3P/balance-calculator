@@ -33,6 +33,7 @@ const excludeAddressREG = [
   "0x9a760aa1fe631fd9ac0aee0965736121c7c132cc", // mtp onoff ramp
   "0xb65a382e536cf80a792e10b1ff24f3c04845d4a3", // realt gestion budget mtp
   "0x555eb55cbc477aebbe5652d25d0fea04052d3971", // Budget Team RealT sur sablier
+  "0xce88686553686da562ce7cea497ce749da109f9f", // Balancer fee collector (pools multi-tokens)
   ...getDexPoolAddresses(),
 ];
 

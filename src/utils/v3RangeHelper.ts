@@ -82,6 +82,7 @@ export function transformAllV2PoolsToV3(balances: any[]): any[] {
             const uniqueTokensArray = Array.from(uniqueTokens.values());
 
             // Transformer seulement les pools avec exactement 2 tokens
+            // Les pools avec plus de 2 tokens (ex: Balancer multi-tokens) ne sont pas supportées.
             if (uniqueTokensArray.length === 2) {
               v2PoolsToTransform.set(poolKey, uniqueTokensArray);
               poolBalances.forEach((balance) => {
