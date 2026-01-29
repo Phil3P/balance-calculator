@@ -388,17 +388,17 @@ Utilisons le **Scénario 8** de `balancesREG_mock_examples.json` avec la configu
 
 ### Comparaison des résultats pour les autres scénarios en mode "proximity"
 
-En appliquant la même configuration et méthode de calcul aux autres scénarios, voici les résultats que nous pourrions obtenir:
+En appliquant la même configuration et méthode de calcul aux autres scénarios, voici les résultats que nous pourrions obtenir (avec `outOfRangeEnabled: false`:
 
 | Scénario | Description                          | État    | Prix  | Boost REG | Boost USDC | Pouvoir de vote |
 | -------- | ------------------------------------ | ------- | ----- | --------- | ---------- | --------------- |
-| 1        | 50% USDC / 50% REG, 0.5$ à 1.5$      | Actif   | 1.00$ | 5.00      | 2.50       | 3750            |
-| 2        | 75% REG / 25% USDC, 0.5$ à 1.5$      | Actif   | 0.63$ | 4.26      | 1.64       | 2931            |
-| 3        | 25% REG / 75% USDC, 0.5$ à 1.5$      | Actif   | 1.22$ | 4.56      | 2.10       | 2867            |
-| 4        | 100% USDC, 0.5$ à 0.99$              | Inactif | 1.00$ | -         | 0          | 0               |
-| 5        | 100% REG, 1.01$ à 1.5$               | Inactif | 1.00$ | 0         | -          | 0               |
-| 6        | 100% USDC, 0.01$ à 0.1$              | Inactif | 1.00$ | -         | 0          | 0               |
-| 7        | 100% REG, 100$ à 110$                | Inactif | 1.00$ | 0         | -          | 0               |
+| 1        | 50% USDC / 50% REG, 0.5$ à 1.5$      | Actif   | 1.00$ | 5.00      | 2.50       | 2400            |
+| 2        | 75% REG / 25% USDC, 0.5$ à 1.5$      | Actif   | 0.63$ | 4.26      | 1.64       | 2287            |
+| 3        | 25% REG / 75% USDC, 0.5$ à 1.5$      | Actif   | 1.22$ | 4.56      | 2.10       | 2076            |
+| 4        | 100% USDC, 0.5$ à 0.99$              | Inactif | 1.00$ | -         | 1          | 500             |
+| 5        | 100% REG, 1.01$ à 1.5$               | Inactif | 1.00$ | 1         | -          | 1000            |
+| 6        | 100% USDC, 0.01$ à 0.1$              | Inactif | 1.00$ | -         | 1          | 500             |
+| 7        | 100% REG, 100$ à 110$                | Inactif | 1.00$ | 1         | -          | 1000            |
 | 8        | 2.4% REG / 97.6% USDC, 1.05$ à 2.75$ | Actif   | 2.70$ | 5.00      | 0.83       | 345             |
 
 **Notes sur la proximité:**
