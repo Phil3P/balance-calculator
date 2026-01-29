@@ -13,6 +13,7 @@ Cette documentation explique en détail les différents modes de calcul du boost
 3. [Comparaison des modes](./06-comparaison-modes.md)
 4. [Annexe : Explications des paramètres importants](./07-annexe-parametres.md)
 5. [Calcul des ticks et prix dans Uniswap V3](./08-ticks-et-prix.md)
+6. [Transformation des pools V2 vers le format V3](./09-transformation-v2-vers-v3.md)
 
 ## Vue d'ensemble
 
