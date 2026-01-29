@@ -423,9 +423,14 @@ Une caractéristique importante du mode "proximity" est la possibilité de prend
 | 7        | 100% REG, 100$ à 110$                | Inactif | 1.00$ | 99.00$ (9900%)   | 1.00          | 1000            |
 | 8        | 2.4% REG / 97.6% USDC, 1.05$ à 2.75$ | Actif   | 2.70$ | Dans la plage    | -             | 345             |
 
-**Avantages d'inclure les positions inactives proches du prix actuel:**
+_Note sur le calcul du "Boost inactif" pour les scénarios 5 :_ 
+- Le calcul est executé à partir du prix (1$) et jusqu'à la limite du range [1,10$ à 1,5$] la plus éloignée (soit 1,5$). Le calcul se fait par tranche (de 0,05), il y en aura donc 10. Le Boost va passer de son maximum (5) à son minimum (1) en 5 tranches (nota : Lorsqu'on est outOfRange, le `decayslice` (10) est réduit de moitié, afin que la décroissance soit plus rapide). Les tranche suivante seront au minimum (1).
+- Premier tranche : La distance du range [1.01 à 1.5] au prix (1) est de 0.01$, elle est traitée comme la première tranche de boost avec le maxboost (5), auquel est appliqué une "portion", qui correspond à la portion du range (0.04) inclus dans le tranche de calcul (0.05), soit 0.8*5 = un boost de 4.
+- Seconde tranche :  Le `decayProgress` est calculé comme `1 / decaySlices` (soit `1/5 = 0.2`). Le boost est alors `minBoost + (maxBoost - minBoost) * (1 - decayProgress)` soit `1 + (5-1) * (1 - 0.2) = 1 + 3.2 = 4.2`. 
+- Tranches suivantes : Le `decayProgress` est augmenté de 1/5 à chaque tranche, jusqu'à 1. Ce qui donne les boosts suivants : 3.4, puis 2.6, puis 1.8, puis 1. Pour toutes les tranches suivantes, le boost sera au minimum soit 1, fin du range (1.5$)
+- la somme de tous des boost de chaque tranche :  4 + 4.2 + 3.4 + 2.6 + 1.8 + 1 + 1 + 1 + 1 + 1 = 21, est divisé par le nombre de tranche en tenant compte de la "portion" de la première soit 9.8 tranches. Le boost moyen est donc 21 / 9.8 = 2.14
 
-_Note sur le calcul du "Boost inactif" pour les scénarios 4 et 5 :_ La distance au prix pour ces scénarios est de 0.01$. Avec un `sliceWidth` de 0.05$ et `decaySlices` de 10, cette distance, bien qu inférieure à un `sliceWidth` complet, est traitée comme la première "tranche" d'éloignement effectif par rapport au bord de la position. Ainsi, le `decayProgress` est calculé comme `1 / decaySlices` (soit `1/10 = 0.1`). Le boost est alors `minBoost + (maxBoost - minBoost) * (1 - decayProgress)` soit `1 + (5-1) * (1 - 0.1) = 1 + 4 * 0.9 = 4.6`. Pour une décroissance de type `maxBoost - (maxBoost - minBoost) * decayProgress`, cela donnerait `5 - 4 * 0.1 = 4.6`.
+**Avantages d'inclure les positions inactives proches du prix actuel:**
 
 1. **Récompense la liquidité potentiellement utilisable**: Les positions juste à la frontière du prix actuel (comme les scénarios 4 et 5) peuvent devenir actives avec une très légère fluctuation du prix. Cette liquidité est donc pratiquement utilisable et mérite d'être valorisée.
 
