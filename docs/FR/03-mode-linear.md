@@ -388,13 +388,13 @@ Utilisons le **Scénario 8** de `balancesREG_mock_examples.json` avec la configu
 
 ### Comparaison des résultats pour les autres scénarios en mode "proximity"
 
-En appliquant la même configuration et méthode de calcul aux autres scénarios, voici les résultats que nous pourrions obtenir (avec `outOfRangeEnabled: false`:
+En appliquant la même configuration et méthode de calcul aux autres scénarios, voici les résultats que nous pourrions obtenir (avec `outOfRangeEnabled: false`):
 
 | Scénario | Description                          | État    | Prix  | Boost REG | Boost USDC | Pouvoir de vote |
 | -------- | ------------------------------------ | ------- | ----- | --------- | ---------- | --------------- |
-| 1        | 50% USDC / 50% REG, 0.5$ à 1.5$      | Actif   | 1.00$ | 5.00      | 2.50       | 2400            |
-| 2        | 75% REG / 25% USDC, 0.5$ à 1.5$      | Actif   | 0.63$ | 4.26      | 1.64       | 2287            |
-| 3        | 25% REG / 75% USDC, 0.5$ à 1.5$      | Actif   | 1.22$ | 4.56      | 2.10       | 2076            |
+| 1        | 50% USDC / 50% REG, 0.5$ à 1.5$      | Actif   | 1.00$ | 3.2       | 1.6        | 2400            |
+| 2        | 75% REG / 25% USDC, 0.5$ à 1.5$      | Actif   | 0.63$ | 2.26      | 2.33       | 2287            |
+| 3        | 25% REG / 75% USDC, 0.5$ à 1.5$      | Actif   | 1.22$ | 4.07      | 1.26       | 2076            |
 | 4        | 100% USDC, 0.5$ à 0.99$              | Inactif | 1.00$ | -         | 1          | 500             |
 | 5        | 100% REG, 1.01$ à 1.5$               | Inactif | 1.00$ | 1         | -          | 1000            |
 | 6        | 100% USDC, 0.01$ à 0.1$              | Inactif | 1.00$ | -         | 1          | 500             |
@@ -410,16 +410,16 @@ En appliquant la même configuration et méthode de calcul aux autres scénarios
 
 ### Impact du paramètre outOfRangeEnabled sur les positions inactives
 
-Une caractéristique importante du mode "proximity" est la possibilité de prendre en compte les positions actuellement inactives mais proches du prix actuel grâce au paramètre `outOfRangeEnabled: true`. Voici comment les résultats changeraient si l'on activait ce paramètre avec les mêmes configurations que précédemment, mais en utilisant un `inactiveBoost` non nul:
+Une caractéristique importante du mode "proximity" est la possibilité de prendre en compte les positions actuellement inactives mais proches du prix actuel grâce au paramètre `outOfRangeEnabled: true`. Voici comment les résultats changeraient si l'on activait ce paramètre avec les mêmes configurations que précédemment:
 
 | Scénario | Description                          | État    | Prix  | Distance au prix | Boost inactif | Pouvoir de vote |
 | -------- | ------------------------------------ | ------- | ----- | ---------------- | ------------- | --------------- |
-| 1        | 50% USDC / 50% REG, 0.5$ à 1.5$      | Actif   | 1.00$ | Dans la plage    | -             | 3750            |
-| 2        | 75% REG / 25% USDC, 0.5$ à 1.5$      | Actif   | 0.63$ | Dans la plage    | -             | 2931            |
-| 3        | 25% REG / 75% USDC, 0.5$ à 1.5$      | Actif   | 1.22$ | Dans la plage    | -             | 2867            |
-| 4        | 100% USDC, 0.5$ à 0.99$              | Inactif | 1.00$ | 0.01$ (1%)       | 4.60          | 2300            |
-| 5        | 100% REG, 1.01$ à 1.5$               | Inactif | 1.00$ | 0.01$ (1%)       | 4.60          | 4600            |
-| 6        | 100% USDC, 0.01$ à 0.1$              | Inactif | 1.00$ | 0.90$ (900%)     | 1.00          | 500             |
+| 1        | 50% USDC / 50% REG, 0.5$ à 1.5$      | Actif   | 1.00$ | Dans la plage    | -             | 2400            |
+| 2        | 75% REG / 25% USDC, 0.5$ à 1.5$      | Actif   | 0.63$ | Dans la plage    | -             | 2287            |
+| 3        | 25% REG / 75% USDC, 0.5$ à 1.5$      | Actif   | 1.22$ | Dans la plage    | -             | 2076            |
+| 4        | 100% USDC, 0.5$ à 0.99$              | Inactif | 1.00$ | 0.01$ (1%)       | 1.07          | 1071            |
+| 5        | 100% REG, 1.01$ à 1.5$               | Inactif | 1.00$ | 0.01$ (1%)       | 2.14          | 2142            |
+| 6        | 100% USDC, 0.01$ à 0.1$              | Inactif | 1.00$ | 0.90$ (900%)     | 0.50          | 500             |
 | 7        | 100% REG, 100$ à 110$                | Inactif | 1.00$ | 99.00$ (9900%)   | 1.00          | 1000            |
 | 8        | 2.4% REG / 97.6% USDC, 1.05$ à 2.75$ | Actif   | 2.70$ | Dans la plage    | -             | 345             |
 
