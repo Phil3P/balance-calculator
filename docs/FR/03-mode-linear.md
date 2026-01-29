@@ -451,14 +451,14 @@ Le tableau suivant permet de comparer directement les résultats des deux modes 
 | Scénario | Description                          | État  | Prix  | Mode Centered |         | Mode Proximity |         |
 | -------- | ------------------------------------ | ----- | ----- | ------------- | ------- | -------------- | ------- |
 |          |                                      |       |       | Boost REG     | Pouvoir | Boost REG      | Pouvoir |
-| 1        | 50% USDC / 50% REG, 0.5$ à 1.5$      | Actif | 1.00$ | 5.00          | 3750    | 5.00           | 3750    |
-| 2        | 75% REG / 25% USDC, 0.5$ à 1.5$      | Actif | 0.63$ | 2.04          | 1558    | 4.26           | 2931    |
-| 3        | 25% REG / 75% USDC, 0.5$ à 1.5$      | Actif | 1.22$ | 3.24          | 2343    | 4.56           | 2867    |
+| 1        | 50% USDC / 50% REG, 0.5$ à 1.5$      | Actif | 1.00$ | 5.00          | 3750    | 3.2            | 2400    |
+| 2        | 75% REG / 25% USDC, 0.5$ à 1.5$      | Actif | 0.63$ | 2.04          | 1688    | 2.26           | 2287    |
+| 3        | 25% REG / 75% USDC, 0.5$ à 1.5$      | Actif | 1.22$ | 3.24          | 2089    | 4.07           | 2076    |
 | 8        | 2.4% REG / 97.6% USDC, 1.05$ à 2.75$ | Actif | 2.70$ | 1.24          | 235     | 5.00           | 345     |
 
 Observations importantes:
 
-1. Pour une position parfaitement centrée (scénario 1), les deux modes donnent les mêmes résultats.
-2. Pour les positions décentrées mais avec du prix à proximité (scénarios 2, 3, 8), le mode "proximity" offre généralement des boosts plus élevés.
+1. Pour une position parfaitement centrée (scénario 1), le mode centered donne la performance maximum. Le mode proximity donne un résultat moindre, car moyenné sur toutes les tranches de calcul.
+2. Pour les positions décentrées mais avec un prix à proximité (scénarios 2, 3, 8), le mode "proximity" offre généralement des boosts plus élevés.
 3. Le scénario 8 montre la différence la plus importante: en "centered", il obtient un faible boost de 1.24 car très décentré (0.06), mais en "proximity", il obtient le boost maximum de 5.0 pour la partie REG car celle-ci est très proche du prix actuel.
 4. Le mode "proximity" tend à valoriser davantage la liquidité globale dans les positions actives, ce qui peut être préférable pour encourager la liquidité utilisable.
