@@ -423,7 +423,7 @@ Une caractéristique importante du mode "proximity" est la possibilité de prend
 | 7        | 100% REG, 100$ à 110$                | Inactif | 1.00$ | 99.00$ (9900%)   | 1.00          | 1000            |
 | 8        | 2.4% REG / 97.6% USDC, 1.05$ à 2.75$ | Actif   | 2.70$ | Dans la plage    | -             | 345             |
 
-_Note sur le calcul du "Boost inactif" pour les scénarios 5 :_ 
+_Note sur le calcul du "Boost inactif", pour le scénario 5 :_ 
 - Le calcul est executé à partir du prix (1$) et jusqu'à la limite du range [1,10$ à 1,5$] la plus éloignée (soit 1,5$). Le calcul se fait par tranche (de 0,05), il y en aura donc 10. Le Boost va passer de son maximum (5) à son minimum (1) en 5 tranches (nota : Lorsqu'on est outOfRange, le `decayslice` (10) est réduit de moitié, afin que la décroissance soit plus rapide). Les tranches suivantes seront au minimum (1).
 - Premier tranche : Le range [1.01$ à 1.5$] est distant du prix (1$) de 0.01$, soit moins qu'une tranche de calcul(0.05). La première tranche est donc traité avec le maxboost (5), auquel est appliqué une "portion", qui correspond à la portion du range (0.04) inclus dans le tranche de calcul (0.05), soit 0.8*5 = un boost de 4.
 - Seconde tranche :  Le `decayProgress` est calculé comme `1 / decaySlices` (soit `1/5 = 0.2`). Le boost est alors `minBoost + (maxBoost - minBoost) * (1 - decayProgress)` soit `1 + (5-1) * (1 - 0.2) = 1 + 3.2 = 4.2`. 
