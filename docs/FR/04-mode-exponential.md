@@ -390,9 +390,9 @@ Le calculateur a été appliqué au jeu de données (des 10 wallets), et les ré
 | Scénario | Description                          | Prix  | Mode Centered Exp. |         | Mode Proximity Exp. |         |
 | -------- | ------------------------------------ | ----- | ------------------ | ------- | ------------------- | ------- |
 |          |                                      |       | Boost REG          | Pouvoir | Boost REG           | Pouvoir |
-| 1        | 50% USDC / 50% REG, 0.5$ à 1.5$      | 1.00$ | 5.00               | 3750    | 5.00                | 3750    |
-| 2        | 75% REG / 25% USDC, 0.5$ à 1.5$      | 0.63$ | 1.07               | 886     | 3.80                | 2615    |
-| 3        | 25% REG / 75% USDC, 0.5$ à 1.5$      | 1.22$ | 1.70               | 1098    | 4.12                | 2543    |
+| 1        | 50% USDC / 50% REG, 0.5$ à 1.5$      | 1.00$ | 5.00               | 3750    | 5.00                | 1905    |
+| 2        | 75% REG / 25% USDC, 0.5$ à 1.5$      | 0.63$ | 1.07               | 886     | 3.80                | 1989    |
+| 3        | 25% REG / 75% USDC, 0.5$ à 1.5$      | 1.22$ | 1.70               | 1098    | 4.12                | 1738    |
 | 8        | 2.4% REG / 97.6% USDC, 1.05$ à 2.75$ | 2.70$ | 1.001              | 190     | 5.00                | 309     |
 
 Cette comparaison illustre parfaitement la différence fondamentale entre les deux modes avec fonction exponentielle:
