@@ -268,6 +268,12 @@ La configuration utilisée pour ces calculs est définie dans `optionsModifiers.
 5. Cette configuration privilégie fortement les positions qui sont précisément centrées autour du prix actuel, ce qui encourage un comportement très stratégique dans le choix des plages de prix.
 6. L'exposant 3 utilisé dans la configuration actuelle crée une courbe assez "sévère" - des valeurs plus basses comme 2 créeraient une transition plus douce entre le centre et les bords.
 
+### Test :
+
+Le fichier json comprenant les 10 wallets des exemples ci-dessus est disponible [ici](../../outDatas/balancesREG_mock_reel_pool_dex.json)
+
+Le calculateur a été appliqué à ce jeu de données, et les résultats (powerVoting) avec les paramètres mentionnés ci-dessus (sauf `inactiveBoost`, qui est à 1 par défaut) sont disponibles [ici](../../outDatas/Test%20exponential%20centered%20decimals.png)
+
 ## Fonctionnement "boostMode: proximity"
 
 Lorsque `boostMode` est défini sur `"proximity"` pour le `priceRangeMode: "exponential"`, le concept général reste similaire au mode linéaire en proximité, mais la décroissance du boost suit une courbe exponentielle. Cela signifie que le boost diminue plus rapidement (ou plus lentement, selon l'exposant) à mesure que l'on s'éloigne du prix actuel.
@@ -358,22 +364,26 @@ La logique de détermination des tranches est la même que pour le mode linéair
       - Tranche 9 (2.25$ à 2.20$): `decayProgress = 9/10 = 0.9`, `boost = 1 + 4 * Math.pow(1 - 0.9, 2) = 1 + 4 * 0.01 = 1.04`
       - Tranches 10 à 32: `boost = 1`
 
-6.  `bnTotalBoostAccumulated` = somme de tous les boosts de tranche = environ 48.
-7.  `averageBoost = 48 / 33 ≈ 1.45`.
-8.  Boost final pour USDC = `1.45 * 0.5 = 0.73`.
+6.  `bnTotalBoostAccumulated` = somme de tous les boosts de tranche = 48.4
+7.  `averageBoost = 48.4 / 33 = 1.466`.
+8.  Boost final pour USDC = `1.466 * 0.5 = 0.733`.
 
 **Pouvoir de vote pour le Scénario 8 (Exponentiel Proximity, exponent: 2)**:
 
 - REG: `8.772 equivalent REG × 5 = 43.86`
-- USDC: `361.585 equivalent REG × 0.73 ≈ 263.96`
-- **Pouvoir de vote total pour la position: `43.86 + 263.96 ≈ 307.82`** (arrondi à 308)
+- USDC: `361.585 equivalent REG × 0.733 = 265.16`
+- **Pouvoir de vote total pour la position: `43.86 + 265.16 = 309.02`**
 
 **Analyse de l'exemple en mode "proximity" exponentiel (exponent: 2)**:
 
 - Le boost pour le REG, étant sur la tranche `slicesAway = 0`, reçoit toujours le `maxBoost`.
-- Pour l'USDC, l'`averageBoost` (environ 1.45) est inférieur à celui obtenu avec le mode linéaire/proximity (environ 1.67). Avec `exponent: 2`, la décroissance du boost est plus rapide pour les premières tranches s'éloignant du prix actuel. La liquidité doit être encore plus proche pour bénéficier d'un boost élevé.
+- Pour l'USDC, l'`averageBoost` (environ 1.47) est inférieur à celui obtenu avec le mode linéaire/proximity (environ 1.67). Avec `exponent: 2`, la décroissance du boost est plus rapide pour les premières tranches s'éloignant du prix actuel. La liquidité doit être encore plus proche pour bénéficier d'un boost élevé.
 - Ce mode, avec un exposant supérieur à 1, est donc plus sélectif et récompense davantage la liquidité très concentrée autour du prix actuel par rapport à une décroissance linéaire.
 - Comparé au mode "centered" qui donne un boost de seulement 1.001 pour ce scénario, le mode "proximity" offre un boost beaucoup plus élevé (5.0 pour REG et 0.73 pour USDC) car il valorise la proximité au prix actuel plutôt que le centrage de la plage.
+
+### Test :
+
+Le calculateur a été appliqué au jeu de données (des 10 wallets), et les résultats (powerVoting) avec les paramètres mentionnés ci-dessus sont disponibles [ici](../../outDatas/Test%20Exponential%20Proximity%20decimals.png)
 
 ### Tableau comparatif des modes "centered" et "proximity" en exponentiel
 
@@ -381,12 +391,12 @@ La logique de détermination des tranches est la même que pour le mode linéair
 | -------- | ------------------------------------ | ----- | ------------------ | ------- | ------------------- | ------- |
 |          |                                      |       | Boost REG          | Pouvoir | Boost REG           | Pouvoir |
 | 1        | 50% USDC / 50% REG, 0.5$ à 1.5$      | 1.00$ | 5.00               | 3750    | 5.00                | 3750    |
-| 2        | 75% REG / 25% USDC, 0.5$ à 1.5$      | 0.63$ | 1.07               | 817     | 3.80                | 2615    |
-| 3        | 25% REG / 75% USDC, 0.5$ à 1.5$      | 1.22$ | 1.70               | 1229    | 4.12                | 2543    |
-| 8        | 2.4% REG / 97.6% USDC, 1.05$ à 2.75$ | 2.70$ | 1.001              | 190     | 5.00                | 308     |
+| 2        | 75% REG / 25% USDC, 0.5$ à 1.5$      | 0.63$ | 1.07               | 886     | 3.80                | 2615    |
+| 3        | 25% REG / 75% USDC, 0.5$ à 1.5$      | 1.22$ | 1.70               | 1098    | 4.12                | 2543    |
+| 8        | 2.4% REG / 97.6% USDC, 1.05$ à 2.75$ | 2.70$ | 1.001              | 190     | 5.00                | 309     |
 
 Cette comparaison illustre parfaitement la différence fondamentale entre les deux modes avec fonction exponentielle:
 
 - Le mode "centered" pénalise très sévèrement les positions décentrées avec l'exposant 3
 - Le mode "proximity" récompense fortement les positions ayant de la liquidité proche du prix actuel
-- Pour le scénario 8, la différence est particulièrement frappante: 190 vs 308 de pouvoir de vote.
+- Pour le scénario 8, la différence est particulièrement frappante: 190 vs 309 de pouvoir de vote.
