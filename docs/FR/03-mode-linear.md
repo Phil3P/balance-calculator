@@ -262,6 +262,10 @@ La configuration utilisée pour ces calculs est définie dans `optionsModifiers.
 4. Pour rappel, un REG doit toujours donner du pouvoir de vote, quelle que soit son utilisation. Il est donc généralement préférable de ne pas mettre le paramètre `inactiveBoost` à 0.
 5. Le scénario 8 illustre comment une position décentrée (prix très proche d'une borne) obtient un boost relativement faible avec le mode "centered", même si elle est active.
 
+**Test**
+Le fichier json comprenant le 10 wallets des exemples ci-dessus est disponible [ici](https://github.com/Phil3P/balance-calculator-DAO/blob/maj-doc/outDatas/balancesREG_mock_reel_pool_dex.json)
+Le calculateur a été appliqué à ce jeu de donné et les résultats (powerVoting) avec les paramètres mentionnés ci-dessus (sauf inactiboost, qui est à 1 par défaut) sont disponibles [ici](https://github.com/Phil3P/balance-calculator-DAO/blob/maj-doc/outDatas/linear%20centered%20decimals.xlsx) (en format
+
 ## Fonctionnement "boostMode: proximity"
 
 Lorsque `boostMode` est défini sur `"proximity"`, le calcul du boost change radicalement. Au lieu de se baser sur le centrage de la plage, il évalue la proximité de la liquidité par rapport au prix actuel du pool. Ce mode est conçu pour récompenser la liquidité qui est "active" ou "inactive" et proche du prix de marché, là où elle est la plus utile.
