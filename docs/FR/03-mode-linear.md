@@ -262,7 +262,7 @@ La configuration utilisée pour ces calculs est définie dans `optionsModifiers.
 4. Pour rappel, un REG doit toujours donner du pouvoir de vote, quelle que soit son utilisation. Il est donc généralement préférable de ne pas mettre le paramètre `inactiveBoost` à 0.
 5. Le scénario 8 illustre comment une position décentrée (prix très proche d'une borne) obtient un boost relativement faible avec le mode "centered", même si elle est active.
 
-**Test**
+**Test : **
 
 Le fichier json comprenant le 10 wallets des exemples ci-dessus est disponible [ici](https://github.com/Phil3P/balance-calculator-DAO/blob/maj-doc/outDatas/balancesREG_mock_reel_pool_dex.json)
 
@@ -450,6 +450,10 @@ _Note sur le calcul du "Boost inactif", pour le scénario 5 :_
 
 Cette approche permet une distribution plus équitable et stratégiquement pertinente du pouvoir de vote, en valorisant non seulement la liquidité actuellement utilisable, mais aussi celle qui pourrait rapidement le devenir en cas de légères fluctuations du marché.
 
+**Test : **
+
+Le calculateur a été appliqué au jeu de données (des 10 wallets), et les résultats (powerVoting) avec les paramètres mentionnés ci-dessus sont disponibles [ici](https://github.com/Phil3P/balance-calculator-DAO/blob/maj-doc/outDatas/Test%20linear%20proximity%20decimals.png)
+
 ## Comparaison directe des modes "centered" et "proximity"
 
 Le tableau suivant permet de comparer directement les résultats des deux modes de boost pour les scénarios actifs:
@@ -468,8 +472,3 @@ Observations importantes:
 2. Pour les positions décentrées mais avec un prix à proximité (scénarios 2, 3, 8), le mode "proximity" offre généralement des boosts plus élevés.
 3. Le scénario 8 montre la différence la plus importante: en "centered", il obtient un faible boost de 1.24 car très décentré (0.06), mais en "proximity", il obtient le boost maximum de 5.0 pour la partie REG car celle-ci est très proche du prix actuel.
 4. Le mode "proximity" tend à valoriser davantage la liquidité globale dans les positions actives, ce qui peut être préférable pour encourager la liquidité utilisable.
-
-**Test**
-
-Le calculateur a été appliqué au jeu de données (des 10 wallets), et les résultats (powerVoting) avec les paramètres mentionnés ci-dessus sont disponibles [ici](https://github.com/Phil3P/balance-calculator-DAO/blob/maj-doc/outDatas/Test%20linear%20proximity%20decimals.png)
-
