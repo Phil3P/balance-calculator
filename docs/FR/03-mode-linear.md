@@ -266,7 +266,7 @@ La configuration utilisée pour ces calculs est définie dans `optionsModifiers.
 
 Le fichier json comprenant le 10 wallets des exemples ci-dessus est disponible [ici](https://github.com/Phil3P/balance-calculator-DAO/blob/maj-doc/outDatas/balancesREG_mock_reel_pool_dex.json)
 
-Le calculateur a été appliqué à ce jeu de donné et les résultats (powerVoting) avec les paramètres mentionnés ci-dessus (sauf inactiboost, qui est à 1 par défaut) sont disponibles [ici](https://github.com/Phil3P/balance-calculator-DAO/blob/maj-doc/outDatas/Test%20linear%20centered%20decimals%20.png)
+Le calculateur a été appliqué à ce jeu de données, et les résultats (powerVoting) avec les paramètres mentionnés ci-dessus (sauf `inactiveBoost`, qui est à 1 par défaut) sont disponibles [ici](https://github.com/Phil3P/balance-calculator-DAO/blob/maj-doc/outDatas/Test%20linear%20centered%20decimals%20.png)
 
 ## Fonctionnement "boostMode: proximity"
 
@@ -468,3 +468,8 @@ Observations importantes:
 2. Pour les positions décentrées mais avec un prix à proximité (scénarios 2, 3, 8), le mode "proximity" offre généralement des boosts plus élevés.
 3. Le scénario 8 montre la différence la plus importante: en "centered", il obtient un faible boost de 1.24 car très décentré (0.06), mais en "proximity", il obtient le boost maximum de 5.0 pour la partie REG car celle-ci est très proche du prix actuel.
 4. Le mode "proximity" tend à valoriser davantage la liquidité globale dans les positions actives, ce qui peut être préférable pour encourager la liquidité utilisable.
+
+**Test**
+
+Le calculateur a été appliqué au jeu de données (des 10 wallets), et les résultats (powerVoting) avec les paramètres mentionnés ci-dessus sont disponibles [ici](https://github.com/Phil3P/balance-calculator-DAO/blob/maj-doc/outDatas/Test%20linear%20proximity%20decimals.png)
+
