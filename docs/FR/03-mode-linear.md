@@ -264,9 +264,9 @@ La configuration utilisée pour ces calculs est définie dans `optionsModifiers.
 
 ### Test :
 
-Le fichier json comprenant le 10 wallets des exemples ci-dessus est disponible [ici](outDatas/balancesREG_mock_reel_pool_dex.json)
+Le fichier json comprenant les 10 wallets des exemples ci-dessus est disponible [ici](../../outDatas/balancesREG_mock_reel_pool_dex.json)
 
-Le calculateur a été appliqué à ce jeu de données, et les résultats (powerVoting) avec les paramètres mentionnés ci-dessus (sauf `inactiveBoost`, qui est à 1 par défaut) sont disponibles [ici](outDatas/Test%20linear%20centered%20decimals%20.png)
+Le calculateur a été appliqué à ce jeu de données, et les résultats (powerVoting) avec les paramètres mentionnés ci-dessus (sauf `inactiveBoost`, qui est à 1 par défaut) sont disponibles [ici](../../outDatas/Test%20linear%20centered%20decimals%20.png)
 
 ## Fonctionnement "boostMode: proximity"
 
@@ -452,7 +452,7 @@ Cette approche permet une distribution plus équitable et stratégiquement perti
 
 ### Test :
 
-Le calculateur a été appliqué au jeu de données (des 10 wallets), et les résultats (powerVoting) avec les paramètres mentionnés ci-dessus sont disponibles [ici](https://github.com/Phil3P/balance-calculator-DAO/blob/maj-doc/outDatas/Test%20linear%20proximity%20decimals.png)
+Le calculateur a été appliqué au jeu de données (des 10 wallets), et les résultats (powerVoting) avec les paramètres mentionnés ci-dessus sont disponibles [ici](../../outDatas/Test%20linear%20proximity%20decimals.png)
 
 ## Comparaison directe des modes "centered" et "proximity"
 
