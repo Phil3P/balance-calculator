@@ -272,7 +272,7 @@ La configuration utilisée pour ces calculs est définie dans `optionsModifiers.
 
 Le fichier json comprenant les 10 wallets des exemples ci-dessus est disponible [ici](../../outDatas/balancesREG_mock_reel_pool_dex.json)
 
-Le calculateur a été appliqué à ce jeu de données, et les résultats (powerVoting) avec les paramètres mentionnés ci-dessus (sauf `inactiveBoost`, qui est à 1 par défaut) sont disponibles [ici](../../outDatas/Test%20exponential%20centered%20decimals.png)
+Le calculateur a été appliqué à ce jeu de données, et les résultats (powerVoting) avec les paramètres mentionnés ci-dessus sont disponibles [ici](../../outDatas/Test%20exponential%20centered%20decimals.png)
 
 ## Fonctionnement "boostMode: proximity"
 
