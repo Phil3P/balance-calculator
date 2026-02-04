@@ -96,7 +96,7 @@ Le paramètre `sourceValue` dans la configuration des boosts peut prendre deux v
 - `"tick"`: Les calculs utilisent directement les valeurs de tick
 - `"priceDecimals"`: Les calculs utilisent les prix ajustés en décimales
 
-Lors de l'utilisation de `sourceValue: "tick"`, les valeurs utilisées sont beaucoup plus grandes (en valeur absolue) car elles représentent des positions sur l'échelle logarithmique. Par exemple, une plage de prix de 0.5$ à 1.5$ correspond approximativement à une plage de ticks de -69300 à -58200, soit une largeur d'environ 11000 ticks.
+Lors de l'utilisation de `sourceValue: "tick"`, les valeurs utilisées sont beaucoup plus grandes (en valeur absolue) car elles représentent des positions sur l'échelle logarithmique. Par exemple, une plage de prix de 0.5$ à 1.5$ correspond approximativement à une plage de ticks de -283256 à -272269, soit une largeur d'environ 11000 ticks.
 
 ### Conséquences sur les paramètres de boost
 
@@ -145,3 +145,114 @@ const tick = Math.log(price) / Math.log(1.0001); // ≈ -283600
 La compréhension du mécanisme de conversion entre ticks et prix est cruciale pour configurer efficacement les paramètres de boost, particulièrement si vous utilisez `sourceValue: "tick"`. Les valeurs numériques pour les ticks sont beaucoup plus grandes et fonctionnent sur une échelle logarithmique, ce qui peut rendre leur manipulation moins intuitive que les prix décimaux.
 
 Pour la plupart des cas d'utilisation, il est recommandé d'utiliser `sourceValue: "priceDecimals"` car cela rend la configuration plus intuitive et directement liée aux prix observables sur le marché.
+
+## Exemple de calcul 
+
+**Pour `boostMode: "proximity"`, `priceRangeMode : "Linear"` et `sourceValue: "tick"`**
+
+En utilisant les données des scénarios disponibles dans `balancesREG_mock_examples.json` et avec les paramètres suivants définis dans `src/configs/optionsModifiers.ts`:
+
+```typescript
+{
+  sushiswap: {
+    default: {
+      REG: 4, // Multiplicateur de base pour REG
+      "*": 2 // Multiplicateur de base pour tous les autres tokens
+    },
+    v3: {
+        sourceValue: "tick",
+        priceRangeMode: "linear",
+        boostMode: "proximity",
+        maxBoost: 5,
+        minBoost: 1,
+         // Avec `sourceValue: "tick"`, une valeur par défaut de 1 signifie que chaque tranche correspond à une variation de prix de 0.01%
+        sliceWidth: 1000, //  chaque tranche représente une variation de 10% du prix
+        decaySlicesDown: 10, // Atteint minBoost en 10 tranches vers le bas (0.5$ de variation)
+        decaySlicesUp: 10,   // Atteint minBoost en 10 tranches vers le haut (0.5$ de variation)
+        outOfRangeEnabled: true
+    }
+  }
+}
+```
+
+### cas du Scénario 1 (Position 1001) pour l'utilisateur 0x111...111**:
+
+#### Données d'entrée :
+
+- Pool: REG/USDC (REG est token0, USDC est token1)
+- Position active (isActive: true)
+- Prix actuel: 1.0$ => "currentTick": -276324,
+- Prix min: 0.5$ => "tickLower": -283256,
+- Prix max: 1.5$ => "tickUpper": -272269,
+- Balance REG: 500 tokens
+- Balance USDC équivalent REG: 500 tokens
+- Defaut Boost REG: 4
+- Defaut Boost USDC: 2
+
+#### Calcul du boost pour le REG (Token0):
+
+1.  `valueLower` est `null`, `valueUpper` est `-272269` (maxPrice de la position).
+2.  Le prix actuel est `currentValue = -276324`.
+3.  La borne de référence (`bnEffectiveReferencePoint`) est `-272269`.
+4.  Direction: `1` (vers le haut, de `currentValue` vers `bnEffectiveReferencePoint`).
+5.  Largeur totale de la liquidité pertinente (`bnTotalLiquidityWidth`): `|-276324 - -272269| = 4055`.
+6.  Nombre total de tranches théoriques (`bnTotalSlicesInLiquidity`): `4055 / 1000 = 4.055` tranches.
+7.  `decaySlices` pertinent est `decaySlicesUp = 10`.
+
+    - **Tranche 1 (i=0)**: de -276324 à -275324 (portion = 1).
+      - `slicesAway = i = 0`.
+      - `decayProgress = 0 / 10 = 0`.
+      - `sliceBoostNum = 5 - (5 - 1) * 0 = 5`.
+    - **Tranche 2 (i=1)**: de -275324 à -274324 (portion = 1).
+      - `sliceBoostNum = 4.6`.
+    - **Tranche 3 (i=2)**: de -274324 à -273324 (portion = 1).
+      - `sliceBoostNum = 4.2`.
+    - **Tranche 4 (i=3)**: de -273324 à -272324 (portion = 1).
+      - `sliceBoostNum = 3.8`.
+    - **Tranche 5 (i=4)**: de -272324 à -272269 (portion = 0.055).
+      - `sliceBoostNum = 3.4 * 0.055 = 0.19`.
+      
+    `bnTotalBoostAccumulated = 5 + 4.6 + 4.2 + 3.8 + 0.19 = 17.79`
+      
+8.  `averageBoost = 17.79 / 4.055 = 4.3864`.
+9.  Boost final pour REG = `4.39 * 1 = 4.39`.
+
+#### Calcul du boost pour l'USDC (Token1):
+
+1.  `valueLower` est `-283256` (minPrice de la position), `valueUpper` est `null`.
+2.  Le prix actuel est `currentValue = -276324`.
+3.  La borne de référence (`bnEffectiveReferencePoint`) est `-283256`.
+4.  Direction: `-1` (vers le bas, de `currentValue` vers `bnEffectiveReferencePoint`).
+5.  Largeur totale de la liquidité pertinente (`bnTotalLiquidityWidth`): `|-283256 - -276324| = 6932`.
+6.  Nombre total de tranches théoriques (`bnTotalSlicesInLiquidity`): `6932 / 1000 = 6,932` tranches.
+7.  `decaySlices` pertinent est `decaySlicesDown = 10`.
+
+    - **Tranche 1 (i=0)**: de -276324 à -277324 (portion = 1).
+      - `sliceBoostNum = 5`.
+    - **Tranche 2 (i=1)**: de -277324 à -278324 (portion = 1).
+      - `sliceBoostNum = 4.6`.
+    - **Tranche 3 (i=2)**: de -278324 à -279324 (portion = 1).
+      - `sliceBoostNum = 4.2`.
+    - **Tranche 4 (i=3)**: de -279324 à -280324 (portion = 1).
+      - `sliceBoostNum = 3.8`.
+    - **Tranche 5 (i=4)**: de -280324 à -281269 (portion = 1).
+      - `sliceBoostNum = 3.4`.
+    - **Tranche 6 (i=5)**: de -281324 à -282269 (portion = 1).
+      - `sliceBoostNum = 3`.
+    - **Tranche 7 (i=6)**: de -282324 à -283256 (portion = 0.932).
+      - `sliceBoostNum = 2.6 * 0.932= 2.42`.
+      
+    `bnTotalBoostAccumulated = 26.42`.
+
+8.  `averageBoost = 26.42 / 6.932 ≈ 3.8117`.
+9.  Boost final pour USDC = `3.8117 * 0.5 = 1.91`.
+
+#### Pouvoir de vote pour le Scénario 1 (Position 1001)**:
+
+- REG: `500 tokens × 4,39 = 2193.22`
+- USDC: `500 equivalent REG × 1.91 = 952.94`
+- **Total: `2193.22 + 952.94 = 3146.16`**
+
+### Résultats pour l'ensemble du jeu de test : 
+
+Calculateur executé pour les 10 wallets [ici](../../outDatas/Test%20linear%20proximity%20tick%20.png)
