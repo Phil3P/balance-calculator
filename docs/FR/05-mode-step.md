@@ -273,6 +273,11 @@ La configuration utilisée pour ces calculs est définie dans `optionsModifiers.
 
 6. Pour le scénario 8, avec un centrage de seulement 6%, le boost tombe au minimum car aucun palier ne s'applique. Cette approche par paliers peut être plus sévère que l'approche linéaire pour les positions très décentrées.
 
+### Test :
+
+Le fichier json comprenant les 10 wallets des exemples ci-dessus est disponible [ici](../../outDatas/balancesREG_mock_reel_pool_dex.json)
+
+Le calculateur a été appliqué à ce jeu de données, et les résultats (powerVoting) avec les paramètres mentionnés ci-dessus  sont disponibles [ici](../../outDatas/Test%20step%20centered%20decimals.png)
 ## Fonctionnement "boostMode: proximity"
 
 Dans ce mode, le calcul de boost utilise un système de paliers pour déterminer le boost à appliquer en fonction de la distance au prix actuel.
@@ -282,7 +287,7 @@ Dans ce mode, le calcul de boost utilise un système de paliers pour déterminer
 1. **Calcul par Tranche (`sliceWidth`)**: Comme pour les autres modes proximity, la liquidité est analysée par tranches définies par `sliceWidth`.
 2. **Boost par Paliers**: Au lieu d'utiliser une formule de décroissance continue (linéaire ou exponentielle), ce mode utilise des paliers (`steps`) pour déterminer le boost à appliquer.
 
-   - Chaque palier est défini comme `[threshold, boostValue]` où:
+   - Chaque palier est défini comme `[threshold, boostValue]` (différent du mode Centered) où:
      - `threshold` représente une proportion de `decaySlices` (valeur entre 0 et 1, typiquement ≤ 1).
      - `boostValue` est le boost à appliquer pour les tranches dont le `decayProgress` est inférieur ou égal à ce seuil.
    - Pour une tranche à distance `slicesAway`, on calcule `decayProgress = slicesAway / decaySlices`.
@@ -369,62 +374,66 @@ Reprenons le **Scénario 8** de `balancesREG_mock_examples.json` avec la configu
 4. `bnTotalSlicesInLiquidity = 1.65 / 0.05 = 33` tranches.
 5. `decaySlicesRelevant = decaySlicesDown = 20`.
 
-   - **Tranches 0-4 (decayProgress ≤ 0.25)**: 5 premières tranches (de 2.70$ à 2.45$)
+   - **Tranches 0-5 (decayProgress ≤ 0.25)**: 6 premières tranches (de 2.70$ à 2.45$)
      - Pour chacune : `boostValue = 5`
-     - Contribution : `5 × 5 = 25`
-   - **Tranches 5-9 (0.25 < decayProgress ≤ 0.5)**: 5 tranches suivantes (de 2.45$ à 2.20$)
+     - Contribution : `6 × 5 = 30`
+   - **Tranches 6-10 (0.25 < decayProgress ≤ 0.5)**: 5 tranches suivantes (de 2.45$ à 2.20$)
      - Pour chacune : `boostValue = 3`
      - Contribution : `5 × 3 = 15`
-   - **Tranches 10-14 (0.5 < decayProgress ≤ 0.75)**: 5 tranches suivantes (de 2.20$ à 1.95$)
+   - **Tranches 11-15 (0.5 < decayProgress ≤ 0.75)**: 5 tranches suivantes (de 2.20$ à 1.95$)
      - Pour chacune : `boostValue = 2`
      - Contribution : `5 × 2 = 10`
-   - **Tranches 15-19 (0.75 < decayProgress ≤ 1.0)**: 5 tranches suivantes (de 1.95$ à 1.70$)
+   - **Tranches 16-19 (0.75 < decayProgress ≤ 1.0)**: 4 tranches suivantes (de 1.95$ à 1.70$)
      - Pour chacune : `boostValue = 1`
-     - Contribution : `5 × 1 = 5`
+     - Contribution : `4 × 1 = 4`
    - **Tranches 20-32 (decayProgress > 1.0)**: 13 tranches restantes (de 1.70$ à 1.05$)
      - Pour chacune : `boostValue = 1` (minBoost)
      - Contribution : `13 × 1 = 13`
 
-6. `bnTotalBoostAccumulated = 25 + 15 + 10 + 5 + 13 = 68`.
-7. `averageBoost = 68 / 33 ≈ 2.06`.
-8. Boost final pour USDC = `2.06 * 0.5 = 1.03`.
+6. `bnTotalBoostAccumulated = 30 + 15 + 10 + 4 + 13 = 72`.
+7. `averageBoost = 72 / 33 ≈ 2.18`.
+8. Boost final pour USDC = `2.18 * 0.5 = 1.09`.
 
 **Pouvoir de vote pour le Scénario 8 (Step Proximity)**:
 
 - REG: `8.772 tokens × 5 = 43.86`
-- USDC: `361.585 equivalent REG × 1.03 = 372.43`
-- **Pouvoir de vote total pour la position: `43.86 + 372.43 = 416.29`** (arrondi à 416)
+- USDC: `361.585 equivalent REG × 1.09 = 394.46`
+- **Pouvoir de vote total pour la position: `43.86 + 394.46 = 438.31`** (arrondi à 438)
 
 **Analyse détaillée du mode "proximity" step**:
 
 1. Le REG, étant sur la première tranche (`decayProgress = 0`), reçoit le boost du premier palier, soit 5.
 2. Pour l'USDC, la distribution est très différente:
-   - Les 5 premières tranches: boost de 5 (25% des decaySlices)
+   - Les 6 premières tranches: boost de 5 (25% des decaySlices)
    - Les 5 tranches suivantes: boost de 3 (50% des decaySlices)
    - Les 5 tranches suivantes: boost de 2 (75% des decaySlices)
-   - Les 5 tranches suivantes: boost de 1 (100% des decaySlices)
+   - Les 4 tranches suivantes: boost de 1 (100% des decaySlices)
    - Les 13 tranches restantes: boost de 1 (minBoost)
 3. Comparaison avec les autres modes pour le scénario 8:
-   - **Mode "centered"** (tous les variants): 190 pouvoir de vote
+   - **Mode "centered"** exponentiel** et step**: 190 pouvoir de vote
+   - **Mode "centered" linéaire**: 234 pouvoir de vote
    - **Mode "proximity" linéaire**: environ 345 pouvoir de vote
-   - **Mode "proximity" exponentiel**: environ 308 pouvoir de vote
-   - **Mode "proximity" step**: 416 pouvoir de vote
+   - **Mode "proximity" exponentiel**: environ 309 pouvoir de vote
+   - **Mode "proximity" step**: 438 pouvoir de vote
 4. Le mode step permet une personnalisation précise des seuils de récompense, ce qui peut créer des avantages stratégiques pour certaines positions. Dans notre exemple, il est le plus généreux pour ce scénario particulier.
-
 5. Les avantages du mode step par rapport aux autres modes:
    - Contrôle explicite et discret des niveaux de boost
    - Possibilité de créer des "zones cibles" avec des seuils de boost bien définis
    - Permet de définir des stratégies de boost différentes pour différentes sections de la plage de liquidité
    - Plus facile à communiquer aux fournisseurs de liquidité: "Si vous êtes dans les X% du prix actuel, vous obtenez un boost de Y"
 
+### Test :
+
+Le calculateur a été appliqué au jeu de données (des 10 wallets), et les résultats (powerVoting) avec les paramètres mentionnés ci-dessus sont disponibles [ici](../../outDatas/Test%20step%20proximity%20decimals.png)
+
 ### Tableau comparatif des modes "centered" et "proximity" pour le mode step
 
 | Scénario | Description                          | Prix  | Mode Centered Step |         | Mode Proximity Step |         |
 | -------- | ------------------------------------ | ----- | ------------------ | ------- | ------------------- | ------- |
 |          |                                      |       | Boost REG          | Pouvoir | Boost REG           | Pouvoir |
-| 1        | 50% USDC / 50% REG, 0.5$ à 1.5$      | 1.00$ | 5.00               | 3750    | 5.00                | 3750    |
-| 2        | 75% REG / 25% USDC, 0.5$ à 1.5$      | 0.63$ | 1.50               | 1241    | 3.60                | 2480    |
-| 3        | 25% REG / 75% USDC, 0.5$ à 1.5$      | 1.22$ | 3.00               | 1934    | 3.90                | 2750    |
-| 8        | 2.4% REG / 97.6% USDC, 1.05$ à 2.75$ | 2.70$ | 1.00               | 190     | 5.00                | 416     |
+| 1        | 50% USDC / 50% REG, 0.5$ à 1.5$      | 1.00$ | 5.00               | 3750    | 5.00                | 3150    |
+| 2        | 75% REG / 25% USDC, 0.5$ à 1.5$      | 0.63$ | 1.50               | 1241    | 3.60                | 2986    |
+| 3        | 25% REG / 75% USDC, 0.5$ à 1.5$      | 1.22$ | 3.00               | 1934    | 3.90                | 2725    |
+| 8        | 2.4% REG / 97.6% USDC, 1.05$ à 2.75$ | 2.70$ | 1.00               | 190     | 5.00                | 438     |
 
 Cette comparaison montre clairement que pour des positions ayant une liquidité proche du prix actuel, comme le scénario 8, le mode "proximity" offre un avantage considérable par rapport au mode "centered", particulièrement avec l'approche par paliers (step).

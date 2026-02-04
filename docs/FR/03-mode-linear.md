@@ -262,6 +262,12 @@ La configuration utilisée pour ces calculs est définie dans `optionsModifiers.
 4. Pour rappel, un REG doit toujours donner du pouvoir de vote, quelle que soit son utilisation. Il est donc généralement préférable de ne pas mettre le paramètre `inactiveBoost` à 0.
 5. Le scénario 8 illustre comment une position décentrée (prix très proche d'une borne) obtient un boost relativement faible avec le mode "centered", même si elle est active.
 
+### Test :
+
+Le fichier json comprenant les 10 wallets des exemples ci-dessus est disponible [ici](../../outDatas/balancesREG_mock_reel_pool_dex.json)
+
+Le calculateur a été appliqué à ce jeu de données, et les résultats (powerVoting) avec les paramètres mentionnés ci-dessus (sauf `inactiveBoost`, qui est à 1 par défaut) sont disponibles [ici](../../outDatas/Test%20linear%20centered%20decimals%20.png)
+
 ## Fonctionnement "boostMode: proximity"
 
 Lorsque `boostMode` est défini sur `"proximity"`, le calcul du boost change radicalement. Au lieu de se baser sur le centrage de la plage, il évalue la proximité de la liquidité par rapport au prix actuel du pool. Ce mode est conçu pour récompenser la liquidité qui est "active" ou "inactive" et proche du prix de marché, là où elle est la plus utile.
@@ -388,17 +394,17 @@ Utilisons le **Scénario 8** de `balancesREG_mock_examples.json` avec la configu
 
 ### Comparaison des résultats pour les autres scénarios en mode "proximity"
 
-En appliquant la même configuration et méthode de calcul aux autres scénarios, voici les résultats que nous pourrions obtenir:
+En appliquant la même configuration et méthode de calcul aux autres scénarios, voici les résultats que nous pourrions obtenir (avec `outOfRangeEnabled: false`):
 
 | Scénario | Description                          | État    | Prix  | Boost REG | Boost USDC | Pouvoir de vote |
 | -------- | ------------------------------------ | ------- | ----- | --------- | ---------- | --------------- |
-| 1        | 50% USDC / 50% REG, 0.5$ à 1.5$      | Actif   | 1.00$ | 5.00      | 2.50       | 3750            |
-| 2        | 75% REG / 25% USDC, 0.5$ à 1.5$      | Actif   | 0.63$ | 4.26      | 1.64       | 2931            |
-| 3        | 25% REG / 75% USDC, 0.5$ à 1.5$      | Actif   | 1.22$ | 4.56      | 2.10       | 2867            |
-| 4        | 100% USDC, 0.5$ à 0.99$              | Inactif | 1.00$ | -         | 0          | 0               |
-| 5        | 100% REG, 1.01$ à 1.5$               | Inactif | 1.00$ | 0         | -          | 0               |
-| 6        | 100% USDC, 0.01$ à 0.1$              | Inactif | 1.00$ | -         | 0          | 0               |
-| 7        | 100% REG, 100$ à 110$                | Inactif | 1.00$ | 0         | -          | 0               |
+| 1        | 50% USDC / 50% REG, 0.5$ à 1.5$      | Actif   | 1.00$ | 3.2       | 1.6        | 2400            |
+| 2        | 75% REG / 25% USDC, 0.5$ à 1.5$      | Actif   | 0.63$ | 2.26      | 2.33       | 2287            |
+| 3        | 25% REG / 75% USDC, 0.5$ à 1.5$      | Actif   | 1.22$ | 4.07      | 1.26       | 2076            |
+| 4        | 100% USDC, 0.5$ à 0.99$              | Inactif | 1.00$ | -         | 1          | 500             |
+| 5        | 100% REG, 1.01$ à 1.5$               | Inactif | 1.00$ | 1         | -          | 1000            |
+| 6        | 100% USDC, 0.01$ à 0.1$              | Inactif | 1.00$ | -         | 1          | 500             |
+| 7        | 100% REG, 100$ à 110$                | Inactif | 1.00$ | 1         | -          | 1000            |
 | 8        | 2.4% REG / 97.6% USDC, 1.05$ à 2.75$ | Actif   | 2.70$ | 5.00      | 0.83       | 345             |
 
 **Notes sur la proximité:**
@@ -410,22 +416,27 @@ En appliquant la même configuration et méthode de calcul aux autres scénarios
 
 ### Impact du paramètre outOfRangeEnabled sur les positions inactives
 
-Une caractéristique importante du mode "proximity" est la possibilité de prendre en compte les positions actuellement inactives mais proches du prix actuel grâce au paramètre `outOfRangeEnabled: true`. Voici comment les résultats changeraient si l'on activait ce paramètre avec les mêmes configurations que précédemment, mais en utilisant un `inactiveBoost` non nul:
+Une caractéristique importante du mode "proximity" est la possibilité de prendre en compte les positions actuellement inactives mais proches du prix actuel grâce au paramètre `outOfRangeEnabled: true`. Voici comment les résultats changeraient si l'on activait ce paramètre avec les mêmes configurations que précédemment:
 
 | Scénario | Description                          | État    | Prix  | Distance au prix | Boost inactif | Pouvoir de vote |
 | -------- | ------------------------------------ | ------- | ----- | ---------------- | ------------- | --------------- |
-| 1        | 50% USDC / 50% REG, 0.5$ à 1.5$      | Actif   | 1.00$ | Dans la plage    | -             | 3750            |
-| 2        | 75% REG / 25% USDC, 0.5$ à 1.5$      | Actif   | 0.63$ | Dans la plage    | -             | 2931            |
-| 3        | 25% REG / 75% USDC, 0.5$ à 1.5$      | Actif   | 1.22$ | Dans la plage    | -             | 2867            |
-| 4        | 100% USDC, 0.5$ à 0.99$              | Inactif | 1.00$ | 0.01$ (1%)       | 4.60          | 2300            |
-| 5        | 100% REG, 1.01$ à 1.5$               | Inactif | 1.00$ | 0.01$ (1%)       | 4.60          | 4600            |
-| 6        | 100% USDC, 0.01$ à 0.1$              | Inactif | 1.00$ | 0.90$ (900%)     | 1.00          | 500             |
+| 1        | 50% USDC / 50% REG, 0.5$ à 1.5$      | Actif   | 1.00$ | Dans la plage    | -             | 2400            |
+| 2        | 75% REG / 25% USDC, 0.5$ à 1.5$      | Actif   | 0.63$ | Dans la plage    | -             | 2287            |
+| 3        | 25% REG / 75% USDC, 0.5$ à 1.5$      | Actif   | 1.22$ | Dans la plage    | -             | 2076            |
+| 4        | 100% USDC, 0.5$ à 0.99$              | Inactif | 1.00$ | 0.01$ (1%)       | 1.07          | 1071            |
+| 5        | 100% REG, 1.01$ à 1.5$               | Inactif | 1.00$ | 0.01$ (1%)       | 2.14          | 2142            |
+| 6        | 100% USDC, 0.01$ à 0.1$              | Inactif | 1.00$ | 0.90$ (900%)     | 0.50          | 500             |
 | 7        | 100% REG, 100$ à 110$                | Inactif | 1.00$ | 99.00$ (9900%)   | 1.00          | 1000            |
 | 8        | 2.4% REG / 97.6% USDC, 1.05$ à 2.75$ | Actif   | 2.70$ | Dans la plage    | -             | 345             |
 
-**Avantages d'inclure les positions inactives proches du prix actuel:**
+_Note sur le calcul du "Boost inactif", pour le scénario 5 :_ 
+- Le calcul est executé à partir du prix (1$) et jusqu'à la limite du range [1,10$ à 1,5$] la plus éloignée (soit 1,5$). Le calcul se fait par tranche (de 0,05), il y en aura donc 10. Le Boost va passer de son maximum (5) à son minimum (1) en 5 tranches (nota : Lorsqu'on est outOfRange, le `decayslice` (10) est réduit de moitié, afin que la décroissance soit plus rapide). Les tranches suivantes seront au minimum (1).
+- Premier tranche : Le range [1.01$ à 1.5$] est distant du prix (1$) de 0.01$, soit moins qu'une tranche de calcul(0.05). La première tranche est donc traité avec le maxboost (5), auquel est appliqué une "portion", qui correspond à la portion du range (0.04) inclus dans le tranche de calcul (0.05), soit 0.8*5 = un boost de 4.
+- Seconde tranche :  Le `decayProgress` est calculé comme `1 / decaySlices` (soit `1/5 = 0.2`). Le boost est alors `minBoost + (maxBoost - minBoost) * (1 - decayProgress)` soit `1 + (5-1) * (1 - 0.2) = 1 + 3.2 = 4.2`. 
+- Tranches suivantes : Le `decayProgress` est augmenté de 1/5 à chaque tranche, jusqu'à 1. Ce qui donne les boosts suivants : 3.4, puis 2.6, puis 1.8, puis 1. Pour toutes les tranches suivantes, le boost sera au minimum soit 1, jusqu'à la fin du range (1.5$)
+- la somme de tous des boosts de chaque tranches :  4 + 4.2 + 3.4 + 2.6 + 1.8 + 1 + 1 + 1 + 1 + 1 = 21, est divisé par le nombre de tranches en tenant compte de la "portion" de la première, soit 9.8 tranches. Le boost moyen est donc 21 / 9.8 = 2.14
 
-_Note sur le calcul du "Boost inactif" pour les scénarios 4 et 5 :_ La distance au prix pour ces scénarios est de 0.01$. Avec un `sliceWidth` de 0.05$ et `decaySlices` de 10, cette distance, bien qu inférieure à un `sliceWidth` complet, est traitée comme la première "tranche" d'éloignement effectif par rapport au bord de la position. Ainsi, le `decayProgress` est calculé comme `1 / decaySlices` (soit `1/10 = 0.1`). Le boost est alors `minBoost + (maxBoost - minBoost) * (1 - decayProgress)` soit `1 + (5-1) * (1 - 0.1) = 1 + 4 * 0.9 = 4.6`. Pour une décroissance de type `maxBoost - (maxBoost - minBoost) * decayProgress`, cela donnerait `5 - 4 * 0.1 = 4.6`.
+**Avantages d'inclure les positions inactives proches du prix actuel:**
 
 1. **Récompense la liquidité potentiellement utilisable**: Les positions juste à la frontière du prix actuel (comme les scénarios 4 et 5) peuvent devenir actives avec une très légère fluctuation du prix. Cette liquidité est donc pratiquement utilisable et mérite d'être valorisée.
 
@@ -439,6 +450,10 @@ _Note sur le calcul du "Boost inactif" pour les scénarios 4 et 5 :_ La distance
 
 Cette approche permet une distribution plus équitable et stratégiquement pertinente du pouvoir de vote, en valorisant non seulement la liquidité actuellement utilisable, mais aussi celle qui pourrait rapidement le devenir en cas de légères fluctuations du marché.
 
+### Test :
+
+Le calculateur a été appliqué au jeu de données (des 10 wallets), et les résultats (powerVoting) avec les paramètres mentionnés ci-dessus sont disponibles [ici](../../outDatas/Test%20linear%20proximity%20decimals.png)
+
 ## Comparaison directe des modes "centered" et "proximity"
 
 Le tableau suivant permet de comparer directement les résultats des deux modes de boost pour les scénarios actifs:
@@ -446,14 +461,14 @@ Le tableau suivant permet de comparer directement les résultats des deux modes 
 | Scénario | Description                          | État  | Prix  | Mode Centered |         | Mode Proximity |         |
 | -------- | ------------------------------------ | ----- | ----- | ------------- | ------- | -------------- | ------- |
 |          |                                      |       |       | Boost REG     | Pouvoir | Boost REG      | Pouvoir |
-| 1        | 50% USDC / 50% REG, 0.5$ à 1.5$      | Actif | 1.00$ | 5.00          | 3750    | 5.00           | 3750    |
-| 2        | 75% REG / 25% USDC, 0.5$ à 1.5$      | Actif | 0.63$ | 2.04          | 1558    | 4.26           | 2931    |
-| 3        | 25% REG / 75% USDC, 0.5$ à 1.5$      | Actif | 1.22$ | 3.24          | 2343    | 4.56           | 2867    |
+| 1        | 50% USDC / 50% REG, 0.5$ à 1.5$      | Actif | 1.00$ | 5.00          | 3750    | 3.2            | 2400    |
+| 2        | 75% REG / 25% USDC, 0.5$ à 1.5$      | Actif | 0.63$ | 2.04          | 1688    | 2.26           | 2287    |
+| 3        | 25% REG / 75% USDC, 0.5$ à 1.5$      | Actif | 1.22$ | 3.24          | 2089    | 4.07           | 2076    |
 | 8        | 2.4% REG / 97.6% USDC, 1.05$ à 2.75$ | Actif | 2.70$ | 1.24          | 235     | 5.00           | 345     |
 
 Observations importantes:
 
-1. Pour une position parfaitement centrée (scénario 1), les deux modes donnent les mêmes résultats.
-2. Pour les positions décentrées mais avec du prix à proximité (scénarios 2, 3, 8), le mode "proximity" offre généralement des boosts plus élevés.
+1. Pour une position parfaitement centrée (scénario 1), le mode centered donne la performance maximum. Le mode proximity donne un résultat moindre, car moyenné sur toutes les tranches de calcul.
+2. Pour les positions décentrées mais avec un prix à proximité (scénarios 2, 3, 8), le mode "proximity" offre généralement des boosts plus élevés.
 3. Le scénario 8 montre la différence la plus importante: en "centered", il obtient un faible boost de 1.24 car très décentré (0.06), mais en "proximity", il obtient le boost maximum de 5.0 pour la partie REG car celle-ci est très proche du prix actuel.
 4. Le mode "proximity" tend à valoriser davantage la liquidité globale dans les positions actives, ce qui peut être préférable pour encourager la liquidité utilisable.
